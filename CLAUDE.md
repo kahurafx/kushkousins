@@ -15,6 +15,7 @@ The full product brief is [docs/BRIEF.md](docs/BRIEF.md). **Read it before start
   - `docs`: fetches version-matched API docs. Never trust memory for Next 16, Expo 58, Better Auth, Drizzle, NativeWind or Daraja.
 - Keep changes minimal: no abstraction, option or dependency nobody asked for. New non-trivial logic gets a small test.
 - No hardcoded colours, fonts or springs in apps. Import them from `@repo/ui`.
+- Keep **one TypeScript version (^5.9) across the workspace**. A second version makes pnpm duplicate peer-dependent packages (`@trpc/server`, `expo`), which breaks `instanceof TRPCError` and native builds.
 
 ## Architecture (Turborepo + pnpm)
 | Path | Package | What |
@@ -63,5 +64,5 @@ pnpm auth:generate       # regenerate Better Auth tables after adding plugins
 2. ✅ Chamfered `ProductCard` and the interactive **Hanging Line** (web) with SVG placeholder garments; `/` renders them from seeded data.
 3. ✅ Web storefront: tRPC client, header (nav, search, wishlist, live bag count), Fan Favorites controls, Lookbook, `/about`, PLP `/shop/[category]` (filters/sort/search), PDP `/product/[slug]`, bag drawer, `/checkout` (reserve → mock M-Pesa), `/account` (orders, wishlist, addresses).
 4. ✅ Admin dashboard (`/admin`, `requireAdmin`): overview (KPIs, 30-day revenue chart, low stock, stale-reservation release), inventory (NEW variant rows with compare-and-set stock, UPCYCLED piece + provenance, status actions), curation (drag/keyboard reorder of the Hanging Line, Fan Favorites discount + ★ featured), orders (status pipeline, manual M-Pesa receipt, cancel).
-5. Mobile app: shared types, the tRPC API and auth; touch Hanging Line; 2-column staggered grid; tabs Home/Shop/Upcycled/Bag/Profile.
+5. ✅ Mobile app (Expo 58, NativeWind 4): tabs Home/Shop/Upcycled/Bag/Profile, touch Hanging Line (native snap + Reanimated + haptics), chamfered 2-column staggered grid, PDP, Bag, checkout (reserve → mock pay), Better Auth Expo + tRPC with cookie header. Bundled for iOS/Android; not yet run on a device.
 6. M-Pesa Daraja STK Push replacing `order.mockPay`; callback webhook (plain route handler) verifies `CheckoutRequestID`, stores `MpesaReceiptNumber`, marks the order paid and UPCYCLED items sold. Stock is **already reserved** at `order.create`, so the callback confirms the reservation rather than decrementing. Also add expiry of unpaid reservations (release stock on STK timeout/failure).

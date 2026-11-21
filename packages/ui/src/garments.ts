@@ -63,3 +63,7 @@ export const partingOffset = (index: number, active: number | null) => {
   const d = index - active;
   return Math.sign(d) * (hangingLine.parting[Math.abs(d) - 1] ?? 0);
 };
+
+/** Touch Hanging Line: which garment is centred for a scroll offset (snap interval = slot width). */
+export const snapIndex = (offset: number, interval: number, count: number) =>
+  count <= 0 || interval <= 0 ? 0 : Math.min(count - 1, Math.max(0, Math.round(offset / interval)));

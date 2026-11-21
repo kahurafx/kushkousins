@@ -9,8 +9,9 @@ import { ac, roles } from "./permissions";
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg", schema }),
   emailAndPassword: { enabled: true, minPasswordLength: 8 },
-  // "kushkousins" must match the `scheme` in apps/mobile/app.json
-  trustedOrigins: ["kushkousins://", "exp://"],
+  // "kushkousins" must match the `scheme` in apps/mobile/app.json. The expo() plugin adds "exp://"
+  // (Expo Go) in development only, so production doesn't trust it.
+  trustedOrigins: ["kushkousins://"],
   plugins: [
     admin({ ac, roles, defaultRole: "CUSTOMER", adminRoles: ["ADMIN"] }),
     expo(),

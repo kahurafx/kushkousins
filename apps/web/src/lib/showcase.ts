@@ -1,14 +1,11 @@
 import type { RouterOutputs } from "@repo/api";
-import { salePriceCents } from "@repo/types";
+import { availabilityOf, salePriceCents, type Availability } from "@repo/types";
 import { silhouetteFor, type Silhouette } from "@repo/ui";
 
 type ProductWithVariants = RouterOutputs["product"]["hangingLine"][number];
 
-/**
- * sold     – paid 1-of-1 (product.status = sold)
- * reserved – active but no stock left (held by an unpaid order, or a NEW item sold out)
- */
-export type Availability = "in_stock" | "reserved" | "sold";
+export type { Availability } from "@repo/types";
+export { availabilityLabel, availabilityOf } from "@repo/types";
 
 /** The slim, serialisable shape client components receive (never whole DB rows). */
 export type ShowcaseItem = {
@@ -27,9 +24,6 @@ export type ShowcaseItem = {
   variants: { id: string; size: string; color: string; stock: number }[];
 };
 
-export const availabilityOf = (p: { status: string; variants: { stock: number }[] }): Availability =>
-  p.status === "sold" ? "sold" : p.variants.some((v) => v.stock > 0) ? "in_stock" : "reserved";
-
 export const toShowcaseItem = (p: ProductWithVariants): ShowcaseItem => ({
   id: p.id,
   slug: p.slug,
@@ -45,6 +39,3 @@ export const toShowcaseItem = (p: ProductWithVariants): ShowcaseItem => ({
   featured: p.featured,
   variants: p.variants.map(({ id, size, color, stock }) => ({ id, size, color, stock })),
 });
-
-export const availabilityLabel = (item: Pick<ShowcaseItem, "availability" | "mode">) =>
-  item.availability === "sold" ? "Sold" : item.availability === "reserved" ? (item.mode === "UPCYCLED" ? "Reserved" : "Sold out") : null;

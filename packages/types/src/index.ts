@@ -77,6 +77,16 @@ export const compareSizes = (a: string, b: string) => {
   return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb) || a.localeCompare(b, undefined, { numeric: true });
 };
 
+/**
+ * Shopper-facing availability. sold = paid 1-of-1; reserved = active but no stock left (held by an
+ * unpaid order, or a NEW item sold out). Shared by web and mobile.
+ */
+export type Availability = "in_stock" | "reserved" | "sold";
+export const availabilityOf = (p: { status: string; variants: { stock: number }[] }): Availability =>
+  p.status === "sold" ? "sold" : p.variants.some((v) => v.stock > 0) ? "in_stock" : "reserved";
+export const availabilityLabel = (p: { availability: Availability; mode: InventoryMode }) =>
+  p.availability === "sold" ? "Sold" : p.availability === "reserved" ? (p.mode === "UPCYCLED" ? "Reserved" : "Sold out") : null;
+
 /** Price after the product's discount, in cents. */
 export const salePriceCents = (p: Pick<Product, "priceCents" | "discountPercent">) =>
   Math.round((p.priceCents * (100 - (p.discountPercent ?? 0))) / 100);
