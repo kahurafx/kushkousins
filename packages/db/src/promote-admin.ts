@@ -1,4 +1,5 @@
 // Usage: pnpm promote-admin <email>   (sign up normally first, then promote)
+import "dotenv/config"; // must be first: ./index builds the Pool on import
 import { db, eq, schema } from "./index";
 
 async function main() {

@@ -1,4 +1,5 @@
 // Idempotent: upserts by slug/sku, safe to run repeatedly. Usage: pnpm db:seed
+import "dotenv/config"; // must be first: ./index builds the Pool on import
 import { sql } from "drizzle-orm";
 import { db, schema } from "./index";
 

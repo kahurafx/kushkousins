@@ -5,7 +5,7 @@ This is the brief's "database" package. It exports `db` (node-postgres pool, cac
 ## Layout
 - `src/schema/auth.ts` holds the Better Auth tables, **generated, not hand-edited**: run `pnpm auth:generate` after changing Better Auth plugins, then `db:generate`. The admin plugin adds `user.role` (string, may be comma-separated, so it is not an enum), `banned`, `ban_reason`, `ban_expires` and `session.impersonated_by`.
 - `src/schema/shop.ts` holds the commerce tables. Its enums are built from `@repo/types` tuples (`inventoryMode`, `productStatus`, `orderStatus`).
-- `src/seed.ts` is an idempotent sample catalogue (upserts by slug and SKU, in one transaction): `pnpm db:seed`.
+- `src/seed.ts` is an idempotent sample catalogue (upserts by slug and SKU, in one transaction): `pnpm db:seed`. **Dev only**: it resets stock, prices, discounts and curation for the seeded products, so never run it after real orders or Phase 4 admin edits.
 - `src/promote-admin.ts` sets `role = 'ADMIN'` for an existing user: `pnpm promote-admin <email>`.
 - `drizzle/` holds the generated SQL migrations. Commit them and never edit applied ones.
 - `drizzle.config.ts` reads `DATABASE_URL` from `packages/db/.env` (see `.env.example`). Postgres runs via `docker compose` on **:54329**.
