@@ -23,6 +23,7 @@ export type ShowcaseItem = {
   color: string;
   silhouette: Silhouette;
   image: string | null;
+  featured: boolean;
   variants: { id: string; size: string; color: string; stock: number }[];
 };
 
@@ -41,6 +42,7 @@ export const toShowcaseItem = (p: ProductWithVariants): ShowcaseItem => ({
   color: p.variants[0]?.color ?? "Stone",
   silhouette: silhouetteFor(p.name),
   image: p.images[0] ?? null,
+  featured: p.featured,
   variants: p.variants.map(({ id, size, color, stock }) => ({ id, size, color, stock })),
 });
 

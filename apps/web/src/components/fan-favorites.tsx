@@ -91,10 +91,9 @@ export function FanFavorites({ entries }: { entries: Entry[] }) {
           onScroll={measure}
           className="-mx-4 mt-8 flex snap-x snap-mandatory gap-6 overflow-x-auto scroll-px-4 px-4 pb-2 [scrollbar-width:none] md:-mx-8 md:scroll-px-8 md:px-8"
         >
-          {shown.map(({ item }, i) => (
+          {shown.map(({ item }) => (
             <li key={item.id} className="w-64 shrink-0 snap-start md:w-72">
-              {/* shortcut: "featured" = first favourite until a curation flag exists (Phase 4) */}
-              <ProductCard item={item} featured={i === 0 && filter === "all"} />
+              <ProductCard item={item} />
             </li>
           ))}
         </ul>

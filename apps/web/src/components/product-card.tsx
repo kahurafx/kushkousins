@@ -7,14 +7,14 @@ import { availabilityLabel, type ShowcaseItem } from "@/lib/showcase";
 import { GarmentArt } from "./garment-art";
 import { Price } from "./price";
 
-type Props = { item: ShowcaseItem; featured?: boolean };
+type Props = { item: ShowcaseItem };
 
 /**
  * Signature chamfered card. The chamfer clips only the backdrop layer, so the focus ring
  * (drawn on the article) is never clipped. The link is stretched over the card; the
  * quick-add button is a sibling above it (never nested in the <a>).
  */
-export function ProductCard({ item, featured = false }: Props) {
+export function ProductCard({ item }: Props) {
   const [choosing, setChoosing] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const inStock = item.variants.filter((v) => v.stock > 0);
@@ -71,7 +71,7 @@ export function ProductCard({ item, featured = false }: Props) {
           </ul>
         )}
 
-        {featured && (
+        {item.featured && (
           <span className="absolute right-3 top-3 grid size-8 place-items-center rounded-full bg-tangerine text-forest" title="Editor's pick">
             <svg viewBox="0 0 24 24" className="size-4" aria-hidden fill="currentColor">
               <path d="M12 2.5l2.9 6 6.6.8-4.9 4.6 1.3 6.5L12 17.2l-5.9 3.2 1.3-6.5L2.5 9.3l6.6-.8z" />
