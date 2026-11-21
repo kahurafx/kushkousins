@@ -1,0 +1,26 @@
+@AGENTS.md
+
+# apps/web: storefront + admin (Next.js 16 App Router)
+
+Read [../../packages/ui/DESIGN.md](../../packages/ui/DESIGN.md) before building UI. Colours, fonts, type steps and chamfers come from `@repo/ui` through `src/app/globals.css` (`@import "@repo/ui/theme.css"`). Use the Tailwind classes `bg-canvas`, `text-forest`, `font-display`, `text-display-lg`, `text-label` and `chamfer-md`; never raw hex values.
+
+## Layout
+- `src/app/layout.tsx` loads Cormorant Garamond and Inter with `next/font` (`--font-cormorant`, `--font-inter`).
+- `src/app/api/auth/[...all]/route.ts` is the Better Auth handler. It also serves the mobile app.
+- Storefront routes: `/` (Hanging Line hero, Fan Favorites, Editorial Lookbook), `/shop/[category]`, `/product/[slug]`, `/checkout`, `/account`.
+- Admin: `src/app/admin/**`. Guard it **on the server** in `admin/layout.tsx` with `auth.api.getSession({ headers: await headers() })` and require `role === "ADMIN"`; otherwise redirect. Never guard admin only on the client.
+
+## UI spec
+- **Header:** sticky and translucent. Left links: `NEW ARRIVALS`, `UPCYCLED`, `COLLECTIONS`, `ABOUT US` (`text-label uppercase`). Centre: the serif **kushkousins** wordmark. Right: Search, Account, Wishlist and a Bag icon with a live count.
+- **Hanging Line:** garments on wire hangers along a thin rail. Hover, focus or click scales the garment forward, parts its neighbours with springs and reveals an editorial card. Full motion spec is in DESIGN.md.
+- **Fan Favorites:** chamfered cards, filter pills (`All`, `Upcycled`, `Streetwear`, `Formal`, `Outerwear`), strikethrough discount pricing, and `Previous`/`Next` with progress.
+- **PDP:** gallery, a size selector **or** a "1-of-1 Unique Piece" badge with provenance and materials, and a sticky add-to-bag bar.
+- **Cart drawer:** slides from the right and **revalidates stock on the server** before checkout. 1-of-1 items must not double-sell.
+
+## Rules
+- Use Server Components by default and add `"use client"` only for interaction (motion, drawer, forms).
+- Use `motion` / Framer Motion springs with `spring.default` from `@repo/ui`; use `spring.flick` only after momentum. Respect `useReducedMotion()`.
+- Mutations go through Server Actions or route handlers that parse input with `@repo/types` zod schemas.
+- Access the DB only on the server via `@repo/db`. Never import `@repo/db` or `@repo/auth/server` into client components.
+- Env vars are documented in `.env.example` (never read `.env.local`).
+- Before you call a task done, run `pnpm --filter @repo/web check-types` and `pnpm exec next build`.

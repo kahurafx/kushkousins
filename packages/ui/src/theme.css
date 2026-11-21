@@ -1,0 +1,67 @@
+/* kushkousins design tokens for Tailwind v4. Mirrors src/tokens.ts (tokens.test.ts guards drift). */
+@theme {
+  --color-canvas: #F7F5F0;
+  --color-forest: #1C2B21;
+  --color-espresso: #38251A;
+  --color-tangerine: #EE7218;
+  --color-stone: #E8E6E1;
+
+  /* next/font sets --font-cormorant / --font-inter on <html>; fall back to the family names */
+  --font-display: var(--font-cormorant), "Cormorant Garamond", ui-serif, Georgia, serif;
+  --font-sans: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --text-display-xl: 5rem;
+  --text-display-xl--line-height: 0.95;
+  --text-display-xl--letter-spacing: -0.03em;
+  --text-display-lg: 3.5rem;
+  --text-display-lg--line-height: 1;
+  --text-display-lg--letter-spacing: -0.025em;
+  --text-display-md: 2.25rem;
+  --text-display-md--line-height: 1.1;
+  --text-display-md--letter-spacing: -0.02em;
+  --text-display-sm: 1.5rem;
+  --text-display-sm--line-height: 1.2;
+  --text-display-sm--letter-spacing: -0.01em;
+  --text-price: 0.9375rem;
+  --text-price--line-height: 1.3;
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.2;
+  --text-label--letter-spacing: 0.08em;
+
+  --chamfer-sm: 12px;
+  --chamfer-md: 20px;
+  --chamfer-lg: 32px;
+
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1); /* CSS-only fallback; gestures use springs from tokens.ts */
+}
+
+@utility chamfer-sm {
+  clip-path: polygon(var(--chamfer-sm) 0, 100% 0, 100% calc(100% - var(--chamfer-sm)), calc(100% - var(--chamfer-sm)) 100%, 0 100%, 0 var(--chamfer-sm));
+}
+@utility chamfer-md {
+  clip-path: polygon(var(--chamfer-md) 0, 100% 0, 100% calc(100% - var(--chamfer-md)), calc(100% - var(--chamfer-md)) 100%, 0 100%, 0 var(--chamfer-md));
+}
+@utility chamfer-lg {
+  clip-path: polygon(var(--chamfer-lg) 0, 100% 0, 100% calc(100% - var(--chamfer-lg)), calc(100% - var(--chamfer-lg)) 100%, 0 100%, 0 var(--chamfer-lg));
+}
+
+@layer base {
+  html {
+    background: var(--color-canvas);
+    color: var(--color-forest);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

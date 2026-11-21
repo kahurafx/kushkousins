@@ -9,6 +9,7 @@ Turborepo (pnpm) monorepo.
 | `packages/db` | Drizzle ORM + Postgres schema (auth + shop tables), migrations in `drizzle/` |
 | `packages/auth` | Better Auth server config (`/server`) and web client (`/client`) |
 | `packages/types` | Shared zod schemas and TS types |
+| `packages/ui` | Design tokens, chamfer geometry, springs, `formatKES` (see DESIGN.md) |
 | `packages/typescript-config` | Shared tsconfig |
 
 ## Setup
