@@ -18,6 +18,7 @@ import { user } from "./auth";
 export const inventoryModeEnum = pgEnum("inventory_mode", inventoryMode);
 export const productStatusEnum = pgEnum("product_status", productStatus);
 export const orderStatusEnum = pgEnum("order_status", orderStatus);
+export const paymentStatusEnum = pgEnum("payment_status", ["pending", "succeeded", "failed"]);
 
 export const categories = pgTable("categories", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -116,7 +117,6 @@ export const orders = pgTable(
     currency: text("currency").notNull().default("KES"),
     shippingAddress: jsonb("shipping_address").$type<AddressInput>().notNull(), // snapshot
     mpesaPhone: text("mpesa_phone"),
-    mpesaCheckoutRequestId: text("mpesa_checkout_request_id").unique(),
     mpesaReceiptNumber: text("mpesa_receipt_number").unique(),
     paidAt: timestamp("paid_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -142,6 +142,33 @@ export const orderItems = pgTable(
   (t) => [index("order_items_order_idx").on(t.orderId), check("order_items_qty_pos", sql`${t.quantity} > 0`)],
 );
 
+/**
+ * One row per STK Push. An order can have several (cancelled prompt, wrong PIN, timeout → retry), and a late
+ * success for an earlier attempt must still find its order. A succeeded payment on a cancelled order needs a
+ * manual refund (as does a second success on an already-paid order): succeeded && !applied. `refundedAt` records
+ * that an admin handled it.
+ */
+export const payments = pgTable(
+  "payments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+    checkoutRequestId: text("checkout_request_id").notNull().unique(),
+    phone: text("phone").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    status: paymentStatusEnum("status").notNull().default("pending"),
+    resultCode: integer("result_code"),
+    resultDesc: text("result_desc"),
+    receipt: text("receipt").unique(),
+    applied: boolean("applied").notNull().default(false), // this payment marked the order paid
+    queriedAt: timestamp("queried_at"), // last STK Query, to throttle reconciliation
+    refundedAt: timestamp("refunded_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()).notNull(),
+  },
+  (t) => [index("payments_order_idx").on(t.orderId), index("payments_status_idx").on(t.status)],
+);
+
 export const categoriesRelations = relations(categories, ({ many }) => ({ products: many(products) }));
 export const productsRelations = relations(products, ({ one, many }) => ({
   category: one(categories, { fields: [products.categoryId], references: [categories.id] }),
@@ -160,6 +187,10 @@ export const wishlistItemsRelations = relations(wishlistItems, ({ one }) => ({
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(user, { fields: [orders.userId], references: [user.id] }),
   items: many(orderItems),
+  payments: many(payments),
+}));
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  order: one(orders, { fields: [payments.orderId], references: [orders.id] }),
 }));
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),

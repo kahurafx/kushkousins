@@ -5,7 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTRPC } from "@/lib/trpc";
 
-/** Manual reservation expiry until Phase 6 automates it with the M-Pesa timeout. */
+/** Release reservations now. They also expire on their own (lazily at checkout, and via the cron sweep). */
 export function ReleaseStale() {
   const trpc = useTRPC();
   const router = useRouter();

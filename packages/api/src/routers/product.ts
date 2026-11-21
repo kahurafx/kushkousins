@@ -6,8 +6,8 @@ import { publicProcedure, router } from "../trpc";
 
 const { products, categories, productVariants } = schema;
 
-// Must match salePriceCents() in @repo/types: round half up on positive numbers.
-const salePriceSql = sql<number>`round(${products.priceCents} * (100 - coalesce(${products.discountPercent}, 0)) / 100.0)::int`;
+// Must equal salePriceCents() in @repo/types: whole shillings, half rounds up (numeric round, positives only).
+const salePriceSql = sql<number>`(round(${products.priceCents} * (100 - coalesce(${products.discountPercent}, 0)) / 10000.0) * 100)::int`;
 
 export const ProductListInput = z.object({
   mode: InventoryModeSchema.optional(),

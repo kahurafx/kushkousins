@@ -2,10 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { salePriceCents } from "./index.ts";
 
-test("salePriceCents applies discount and rounds to the cent", () => {
+test("salePriceCents applies discount and rounds to whole shillings", () => {
   assert.equal(salePriceCents({ priceCents: 450000, discountPercent: null }), 450000);
   assert.equal(salePriceCents({ priceCents: 450000, discountPercent: 20 }), 360000);
-  assert.equal(salePriceCents({ priceCents: 99999, discountPercent: 15 }), 84999);
+  assert.equal(salePriceCents({ priceCents: 99999, discountPercent: 15 }), 85000);
 });
 
 import { KenyanPhoneSchema, shippingCents, toMsisdn } from "./index.ts";
@@ -67,4 +67,17 @@ test("admin product schemas reject duplicate size + colour rows (trimmed, any ca
   assert.ok(AdminProductCreateSchema.safeParse({ ...base, variants: [{ size: "M", color: "Black", stock: 1 }, { size: "L", color: "Black", stock: 1 }] }).success);
   assert.ok(!AdminProductCreateSchema.safeParse({ ...base, variants: [{ size: "M", color: "Black", stock: 1 }, { size: " m ", color: "black", stock: 2 }] }).success);
   assert.ok(!AdminProductUpdateSchema.safeParse({ ...base, id: "00000000-0000-4000-8000-000000000000", variants: [{ size: "M", color: "Black", stock: 1 }, { size: "M", color: "BLACK", stock: 1 }] }).success);
+});
+
+import { parseStkCallback, StkCallbackSchema } from "./index.ts";
+
+test("parseStkCallback reads success metadata and tolerates failures without it", () => {
+  const ok = StkCallbackSchema.parse({
+    Body: { stkCallback: { MerchantRequestID: "m", CheckoutRequestID: "ws_CO_1", ResultCode: 0, ResultDesc: "ok",
+      CallbackMetadata: { Item: [{ Name: "Amount", Value: 5400 }, { Name: "MpesaReceiptNumber", Value: "QK4XYZ12AB" }, { Name: "Balance" }, { Name: "PhoneNumber", Value: 254712345678 }] } } },
+  });
+  assert.deepEqual(parseStkCallback(ok), { checkoutRequestId: "ws_CO_1", resultCode: 0, resultDesc: "ok", amountKes: 5400, receipt: "QK4XYZ12AB", phone: "254712345678" });
+  const cancelled = StkCallbackSchema.parse({ Body: { stkCallback: { MerchantRequestID: "m", CheckoutRequestID: "ws_CO_2", ResultCode: "1032", ResultDesc: "Request cancelled by user" } } });
+  assert.equal(parseStkCallback(cancelled).resultCode, 1032);
+  assert.equal(parseStkCallback(cancelled).amountKes, undefined);
 });

@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { RouterOutputs } from "@repo/api";
-import { KenyanPhoneSchema, type AddressInput } from "@repo/types";
+import { KenyanPhoneSchema, RESERVATION_MINUTES, stkFailureMessage, type AddressInput } from "@repo/types";
 import { formatKES } from "@repo/ui";
 import { cart, useCart } from "@/lib/cart";
 import { useTRPC } from "@/lib/trpc";
@@ -51,7 +51,28 @@ export function CheckoutFlow({ addresses, mockPayments }: { addresses: SavedAddr
   const saveAddress = useMutation(trpc.address.create.mutationOptions());
   const createOrder = useMutation(trpc.order.create.mutationOptions());
   const cancelOrder = useMutation(trpc.order.cancel.mutationOptions());
-  const pay = useMutation(trpc.order.mockPay.mutationOptions());
+  const pay = useMutation(trpc.order.pay.mutationOptions());
+  const [waiting, setWaiting] = useState(false); // STK prompt sent; polling until the callback lands
+  // Poll while the prompt is on the customer's phone; stop at a final answer. The server asks Safaricom if the callback is late.
+  const { data: status } = useQuery({
+    ...trpc.order.paymentStatus.queryOptions({ orderId: order?.id ?? "00000000-0000-0000-0000-000000000000" }),
+    enabled: waiting && !!order,
+    staleTime: 0,
+    refetchInterval: (q) => (q.state.data?.status === "pending_payment" && q.state.data.payment?.status !== "failed" ? 3000 : false),
+  });
+  const settled = !!status && status.status !== "pending_payment" && status.status !== "cancelled";
+  const payFailure =
+    status?.status === "cancelled"
+      ? "This order's reservation was released before payment arrived. If M-Pesa took your money, we'll refund it. Please return to your bag and order again."
+      : status?.payment?.status === "failed"
+        ? stkFailureMessage(status.payment.resultCode, status.payment.resultDesc)
+        : null;
+  const prompting = waiting && !!order && !settled && !payFailure;
+  useEffect(() => {
+    if (!settled || !order) return;
+    cart.clear();
+    router.push(`/checkout/confirmation/${order.id}`);
+  }, [settled, order, router]);
 
   const data = validate.data;
   const blocked = !data || data.lines.some((l) => l.status !== "ok");
@@ -91,8 +112,14 @@ export function CheckoutFlow({ addresses, mockPayments }: { addresses: SavedAddr
     const phone = KenyanPhoneSchema.safeParse(String(form.get("mpesa") ?? ""));
     if (!phone.success) return setPhoneError(phone.error.issues[0]?.message ?? "Enter a valid phone number");
     setPhoneError(null);
+    setError(null);
+    setWaiting(false);
     try {
-      await pay.mutateAsync({ orderId: order.id, phone: phone.data });
+      const r = await pay.mutateAsync({ orderId: order.id, phone: phone.data });
+      if (r.status === "pending_payment") {
+        queryClient.removeQueries({ queryKey: trpc.order.paymentStatus.queryKey({ orderId: order.id }) });
+        return setWaiting(true);
+      }
       cart.clear();
       router.push(`/checkout/confirmation/${order.id}`);
     } catch (e) {
@@ -102,7 +129,12 @@ export function CheckoutFlow({ addresses, mockPayments }: { addresses: SavedAddr
 
   async function cancel() {
     if (!order) return;
-    await cancelOrder.mutateAsync({ orderId: order.id }).catch(() => {});
+    try {
+      await cancelOrder.mutateAsync({ orderId: order.id });
+    } catch (e) {
+      // e.g. an M-Pesa prompt is still open: keep the order rather than pretend it was released.
+      return setError(e instanceof Error ? e.message : "We couldn't cancel this order.");
+    }
     setOrder(null);
     go("bag");
   }
@@ -229,10 +261,18 @@ export function CheckoutFlow({ addresses, mockPayments }: { addresses: SavedAddr
           {step === "payment" && order && (
             <>
               <h2 className="text-display-sm">Pay with M-Pesa</h2>
-              {!mockPayments ? (
-                <p role="alert" className="mt-6 text-body-sm">
-                  Online payment isn&apos;t live yet. Your pieces are reserved. We&apos;ll be in touch to complete payment.
-                </p>
+              {payFailure && (
+                <p role="alert" className="mt-6 bg-espresso p-4 text-body-sm text-canvas">{payFailure}</p>
+              )}
+              {prompting ? (
+                <div role="status" className="mt-6 space-y-3 border border-forest/20 p-5">
+                  <p className="text-label uppercase">Check your phone</p>
+                  <p className="text-body">
+                    Enter your M-Pesa PIN on the prompt to pay <strong className="font-medium">{formatKES(order.totalCents)}</strong>. This page updates by itself.
+                  </p>
+                  <p className="text-body-sm opacity-70">No prompt? Make sure your phone is on and unlocked. You can send it again in a minute.</p>
+                  <button type="button" className={secondary} onClick={() => setWaiting(false)}>Use a different number</button>
+                </div>
               ) : (
                 <form
                   className="mt-6 space-y-4"
@@ -241,7 +281,8 @@ export function CheckoutFlow({ addresses, mockPayments }: { addresses: SavedAddr
                     payNow(new FormData(e.currentTarget));
                   }}
                 >
-                  <p className="bg-stone p-3 text-body-sm">Test mode: no real M-Pesa prompt is sent. Payment is simulated.</p>
+                  {mockPayments && <p className="bg-stone p-3 text-body-sm">Test mode: no real M-Pesa prompt is sent. Payment is simulated.</p>}
+                  <p className="text-body-sm opacity-80">We hold your pieces for {RESERVATION_MINUTES} minutes while you pay.</p>
                   <label className="block text-label uppercase">
                     M-Pesa phone number
                     <input
@@ -256,11 +297,11 @@ export function CheckoutFlow({ addresses, mockPayments }: { addresses: SavedAddr
                     {phoneError && <span id="mpesa-error" className="mt-1 block normal-case tracking-normal text-espresso">{phoneError}</span>}
                   </label>
                   <button type="submit" className={primary} disabled={pay.isPending}>
-                    {pay.isPending ? "Confirming…" : `Pay ${formatKES(order.totalCents)}`}
+                    {pay.isPending ? "Sending prompt…" : `Pay ${formatKES(order.totalCents)}`}
                   </button>
                 </form>
               )}
-              <button type="button" className={`mt-6 ${secondary}`} onClick={cancel} disabled={cancelOrder.isPending}>
+              <button type="button" className={`mt-6 ${secondary}`} onClick={cancel} disabled={cancelOrder.isPending || prompting}>
                 Cancel order and release items
               </button>
             </>

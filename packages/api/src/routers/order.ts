@@ -1,8 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { and, asc, db, desc, eq, gte, inArray, schema, sql } from "@repo/db";
-import { CreateOrderSchema, KenyanPhoneSchema, salePriceCents, shippingCents } from "@repo/types";
-import { markPaid, releasePendingOrders } from "../stock";
+import { CreateOrderSchema, KenyanPhoneSchema, RESERVATION_MINUTES, salePriceCents, shippingCents } from "@repo/types";
+import { paymentStatus, startPayment } from "../payments";
+import { assertNoLivePrompt, cancelPending, releasePendingOrders, releaseStaleReservations } from "../stock";
 import { protectedProcedure, router } from "../trpc";
 
 const { orders, orderItems, products, productVariants } = schema;
@@ -10,17 +11,16 @@ const { orders, orderItems, products, productVariants } = schema;
 export const orderRouter = router({
   /**
    * Reserve stock and create a pending order, atomically. Stock is decremented here (not at payment)
-   * so a 1-of-1 can never be sold twice. Any earlier pending order of this user is released first,
-   * so one account holds at most one reservation.
-   * shortcut: pending orders never expire on their own; add expiry with the Daraja STK timeout (Phase 6).
-   * shortcut: release and reserve lock variants in two passes; two shoppers swapping the same items at the same
-   *   instant can deadlock. Postgres aborts one (a 500, never an oversell). Merge into one id-ordered pass in Phase 6.
+   * so a 1-of-1 can never be sold twice. Any earlier pending order of this user is released in the
+   * same pass, so one account holds at most one reservation.
    */
   create: protectedProcedure.input(CreateOrderSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.session.user.id;
     const qty = new Map<string, number>();
     for (const { variantId, quantity } of input.items) qty.set(variantId, (qty.get(variantId) ?? 0) + quantity);
-    const variantIds = [...qty.keys()].sort(); // fixed lock order prevents deadlocks between concurrent orders
+
+    // Lazy expiry, so correctness never depends on the cron running. Its own short transaction.
+    await db.transaction((tx) => releaseStaleReservations(tx, new Date(Date.now() - RESERVATION_MINUTES * 60_000), { onlyUnattempted: true }));
 
     return db.transaction(async (tx) => {
       const pending = await tx
@@ -28,27 +28,34 @@ export const orderRouter = router({
         .from(orders)
         .where(and(eq(orders.userId, userId), eq(orders.status, "pending_payment")))
         .for("update");
-      await releasePendingOrders(tx, pending.map((p) => p.id));
+      await assertNoLivePrompt(tx, pending.map((p) => p.id));
+      const released = await cancelPending(tx, pending.map((p) => p.id));
 
       const rows = await tx
         .select({ variant: productVariants, product: products })
         .from(productVariants)
         .innerJoin(products, eq(products.id, productVariants.productId))
-        .where(inArray(productVariants.id, variantIds));
+        .where(inArray(productVariants.id, [...qty.keys()]));
       const byId = new Map(rows.map((r) => [r.variant.id, r]));
 
       let subtotalCents = 0;
       const lines = [];
-      for (const variantId of variantIds) {
+      // One pass over every touched variant in id order (release + reserve together): a fixed lock order, no deadlocks.
+      for (const variantId of [...new Set([...qty.keys(), ...released.keys()])].sort()) {
+        const back = released.get(variantId) ?? 0;
+        const quantity = qty.get(variantId);
+        if (!quantity) {
+          await tx.update(productVariants).set({ stock: sql`${productVariants.stock} + ${back}` }).where(eq(productVariants.id, variantId));
+          continue;
+        }
         const row = byId.get(variantId);
         if (!row || row.product.status !== "active") {
           throw new TRPCError({ code: "CONFLICT", message: `${row?.product.name ?? "An item"} is no longer available.` });
         }
-        const quantity = qty.get(variantId)!;
         const reserved = await tx
           .update(productVariants)
-          .set({ stock: sql`${productVariants.stock} - ${quantity}` })
-          .where(and(eq(productVariants.id, variantId), gte(productVariants.stock, quantity)))
+          .set({ stock: sql`${productVariants.stock} + ${back - quantity}` })
+          .where(and(eq(productVariants.id, variantId), gte(productVariants.stock, quantity - back)))
           .returning({ id: productVariants.id });
         if (reserved.length === 0) {
           throw new TRPCError({
@@ -95,29 +102,23 @@ export const orderRouter = router({
         .for("update");
       if (!order) throw new TRPCError({ code: "NOT_FOUND" });
       if (order.status !== "pending_payment") throw new TRPCError({ code: "CONFLICT", message: "Only unpaid orders can be cancelled." });
+      await assertNoLivePrompt(tx, [input.orderId]);
       await releasePendingOrders(tx, [input.orderId]);
       return { ok: true };
     }),
   ),
 
   /**
-   * DEV-ONLY stand-in for M-Pesa until Phase 6. Fails closed unless MOCK_PAYMENTS=true,
-   * because in production this would hand out free goods.
+   * Send the M-Pesa PIN prompt (STK Push). The result arrives by callback; poll `paymentStatus`.
+   * With MOCK_PAYMENTS=true (dev only, never in production builds) the order is marked paid at once.
    */
-  mockPay: protectedProcedure
+  pay: protectedProcedure
     .input(z.object({ orderId: z.string().uuid(), phone: KenyanPhoneSchema }))
-    .mutation(async ({ ctx, input }) => {
-      if (process.env.MOCK_PAYMENTS !== "true") throw new TRPCError({ code: "FORBIDDEN", message: "Mock payments are disabled." });
-      return db.transaction(async (tx) => {
-        const [mine] = await tx
-          .select({ id: orders.id })
-          .from(orders)
-          .where(and(eq(orders.id, input.orderId), eq(orders.userId, ctx.session.user.id)));
-        if (!mine) throw new TRPCError({ code: "NOT_FOUND" });
-        const { id, status } = await markPaid(tx, mine.id, { phone: input.phone });
-        return { id, status };
-      });
-    }),
+    .mutation(({ ctx, input }) => startPayment(ctx.session.user.id, input.orderId, input.phone)),
+
+  paymentStatus: protectedProcedure
+    .input(z.object({ orderId: z.string().uuid() }))
+    .query(({ ctx, input }) => paymentStatus(ctx.session.user.id, input.orderId)),
 
   byId: protectedProcedure.input(z.object({ orderId: z.string().uuid() })).query(async ({ ctx, input }) => {
     const order = await db.query.orders.findFirst({

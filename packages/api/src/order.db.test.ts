@@ -85,23 +85,23 @@ test("prices come from the server, and a new order releases the user's previous 
   assert.equal(old[0]!.status, "cancelled");
 });
 
-test("mockPay is refused unless MOCK_PAYMENTS=true, then marks the 1-of-1 sold", { skip }, async () => {
+test("pay fails closed without M-Pesa config; MOCK_PAYMENTS=true marks the 1-of-1 sold", { skip }, async () => {
   const { orders, products } = mod.schema;
-  const [winner] = await mod.db.select().from(orders).where(mod.inArray(orders.userId, users));
-  const pay = () => caller(winner!.userId).order.mockPay({ orderId: winner!.id, phone: "0712 345 678" });
+  // The user still holding the 1-of-1 (KES 5,000 + shipping) reservation.
+  const winner = (await mod.db.select().from(orders).where(mod.inArray(orders.userId, users))).find((o) => o.status === "pending_payment" && o.totalCents === 500000 + 40000);
+  const pay = () => caller(winner!.userId).order.pay({ orderId: winner!.id, phone: "0712 345 678" });
   delete process.env.MOCK_PAYMENTS;
-  await assert.rejects(pay(), { code: "FORBIDDEN" });
+  delete process.env.MPESA_CONSUMER_KEY;
+  await assert.rejects(pay(), { code: "PRECONDITION_FAILED" });
   process.env.MOCK_PAYMENTS = "true";
   try {
-    // Each user holds one pending order; pay the 1-of-1 one.
-    const mine = await mod.db.select().from(orders).where(mod.eq(orders.userId, winner!.userId));
-    const target = mine.find((o) => o.status === "pending_payment" && o.totalCents === 500000 + 40000)!;
-    const paid = await caller(winner!.userId).order.mockPay({ orderId: target.id, phone: "0712 345 678" });
+    const target = winner!;
+    const paid = await caller(winner!.userId).order.pay({ orderId: target.id, phone: "0712 345 678" });
     assert.equal(paid.status, "paid");
-    assert.equal((await caller(winner!.userId).order.mockPay({ orderId: target.id, phone: "0712345678" })).status, "paid"); // idempotent
+    assert.equal((await caller(winner!.userId).order.pay({ orderId: target.id, phone: "0712345678" })).status, "paid"); // idempotent
     const [p] = await mod.db.select().from(products).where(mod.eq(products.id, productIds[0]!));
     assert.equal(p!.status, "sold");
-    await assert.rejects(caller(users.find((u) => u !== winner!.userId)!).order.mockPay({ orderId: target.id, phone: "0712345678" }), { code: "NOT_FOUND" });
+    await assert.rejects(caller(users.find((u) => u !== winner!.userId)!).order.pay({ orderId: target.id, phone: "0712345678" }), { code: "NOT_FOUND" });
   } finally {
     delete process.env.MOCK_PAYMENTS;
   }

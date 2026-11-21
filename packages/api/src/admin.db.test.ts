@@ -55,7 +55,7 @@ test("SKUs use the full slug; duplicate slug is a friendly CONFLICT", { skip }, 
   const [v] = await m.db.select().from(m.schema.productVariants).where(m.eq(m.schema.productVariants.id, newProduct.variantId));
   assert.equal(v!.sku, `T-${tag.toUpperCase()}-NEW-M-BLACK`);
   await assert.rejects(
-    admin().admin.products.create({ mode: "NEW", name: "Dup", slug: `t-${tag}-new`, description: null, priceCents: 1, discountPercent: null, categoryId: null, images: [], variants: [{ size: "S", color: "X", stock: 1 }] }),
+    admin().admin.products.create({ mode: "NEW", name: "Dup", slug: `t-${tag}-new`, description: null, priceCents: 100, discountPercent: null, categoryId: null, images: [], variants: [{ size: "S", color: "X", stock: 1 }] }),
     { code: "CONFLICT", message: /slug/ },
   );
 });
@@ -131,10 +131,10 @@ test("1-of-1: can't be made available while reserved; sold/available toggles sto
 test("stale release frees old reservations and leaves fresh ones", { skip }, async () => {
   const old = await place(ids.c3, newProduct.variantId, 1);
   const fresh = await place(ids.c4, newProduct.variantId, 1);
-  await m.db.update(m.schema.orders).set({ createdAt: m.sql`now() - interval '3 hours'` }).where(m.eq(m.schema.orders.id, old.id));
   const before = await stock(newProduct.variantId);
-  const { released } = await admin().admin.releaseStale({ olderThanMinutes: 60 });
-  assert.ok(released >= 1);
+  await m.db.update(m.schema.orders).set({ createdAt: m.sql`now() - interval '3 hours'` }).where(m.eq(m.schema.orders.id, old.id));
+  // Another test file's order.create may lazily release it first; either way it ends released exactly once.
+  await admin().admin.releaseStale({ olderThanMinutes: 60 });
   assert.equal(await status(old.id), "cancelled");
   assert.equal(await status(fresh.id), "pending_payment");
   assert.equal(await stock(newProduct.variantId), before + 1);

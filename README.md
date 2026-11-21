@@ -17,7 +17,7 @@ Turborepo (pnpm) monorepo.
 ```bash
 pnpm install
 docker compose up -d                         # Postgres on :54329
-cp apps/web/.env.example apps/web/.env.local  # uncomment MOCK_PAYMENTS=true to test checkout locally
+cp apps/web/.env.example apps/web/.env.local  # set MOCK_PAYMENTS=true, or the MPESA_* sandbox keys + a tunnel URL
 cp .env.example packages/db/.env
 cp apps/mobile/.env.example apps/mobile/.env # use your LAN IP for a physical device
 pnpm db:migrate

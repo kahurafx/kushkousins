@@ -7,7 +7,7 @@ A native translation of the storefront, not a webview. Read [../../packages/ui/D
 ## Structure
 - `src/app/_layout.tsx`: fonts (splash held until loaded), `ApiProvider`, gesture root, Stack.
 - `src/app/(tabs)/`: **Home** (`index`: touch Hanging Line + Fan Favorites), **Shop** (chips + staggered grid), **Upcycled**, **Bag** (`cart.validate`), **Profile** (sign in, orders, sign out).
-- Stack screens: `product/[slug]`, `checkout` (sign-in → address → reserve via `order.create` → `order.mockPay`), `auth` (modal; `router.back()` returns to the caller).
+- Stack screens: `product/[slug]`, `checkout` (sign-in → address → reserve via `order.create` → `order.pay` STK Push, polling `order.paymentStatus`), `auth` (modal; `router.back()` returns to the caller).
 - `src/lib/`:
   - `trpc.tsx`: `httpBatchLink` to `${EXPO_PUBLIC_API_URL}/api/trpc`, superjson. `headers()` is a **function** that sends `cookie: await authClient.getCookie()` on every request, with `credentials: "omit"`.
   - `auth-client.ts`: Better Auth Expo client, SecureStore, scheme `kushkousins`.

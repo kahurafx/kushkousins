@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { orderStatus } from "@repo/types";
 import { formatKES } from "@repo/ui";
+import { RefundsDue } from "@/components/admin/refunds-due";
 import { ReleaseStale } from "@/components/admin/release-stale";
 import { RevenueChart } from "@/components/admin/revenue-chart";
 import { fmtDateTime, orderRef, statusLabel } from "@/lib/admin-format";
@@ -22,13 +23,15 @@ function Stat({ label, value, children }: { label: string; value: string; childr
 
 export default async function AdminOverview() {
   await requireAdmin("/admin");
-  const o = await (await sessionCaller()).admin.overview();
+  const trpc = await sessionCaller();
+  const [o, refunds] = await Promise.all([trpc.admin.overview(), trpc.admin.orders.refunds()]);
   const pending = o.byStatus.pending_payment ?? 0;
   const compact = (n: number) => new Intl.NumberFormat("en-KE", { notation: n >= 10_000 ? "compact" : "standard" }).format(n);
 
   return (
     <div className="space-y-10">
       <h1 className="text-display-md">Overview</h1>
+      {refunds.length > 0 && <RefundsDue refunds={refunds} />}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Revenue, last 30 days" value={formatKES(o.revenue30Cents)} />

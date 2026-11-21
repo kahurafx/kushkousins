@@ -1,11 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { and, db, desc, eq, ilike, or, schema, sql } from "@repo/db";
+import { and, db, desc, eq, ilike, isNull, or, schema, sql } from "@repo/db";
 import { canTransition, KenyanPhoneSchema, MpesaReceiptSchema, OrderStatusSchema } from "@repo/types";
-import { markPaid, releasePendingOrders, rethrowUnique } from "../../stock";
+import { assertNoLivePrompt, markPaid, releasePendingOrders, rethrowUnique } from "../../stock";
 import { adminProcedure, router } from "../../trpc";
 
-const { orders, user, orderItems } = schema;
+const { orders, user, orderItems, payments } = schema;
+/** M-Pesa took the money but it didn't pay the order (reservation released first, or a second payment). */
+const needsRefund = and(eq(payments.status, "succeeded"), eq(payments.applied, false), isNull(payments.refundedAt));
 
 export const adminOrdersRouter = router({
   list: adminProcedure
@@ -41,7 +43,7 @@ export const adminOrdersRouter = router({
   byId: adminProcedure.input(z.object({ id: z.string().uuid() })).query(async ({ input }) => {
     const order = await db.query.orders.findFirst({
       where: eq(orders.id, input.id),
-      with: { items: true, user: { columns: { id: true, name: true, email: true } } },
+      with: { items: true, user: { columns: { id: true, name: true, email: true } }, payments: { orderBy: [desc(payments.createdAt)] } },
     });
     if (!order) throw new TRPCError({ code: "NOT_FOUND" });
     return order;
@@ -55,6 +57,7 @@ export const adminOrdersRouter = router({
       if (input.to === "paid") throw new TRPCError({ code: "BAD_REQUEST", message: "Use “Mark paid” with an M-Pesa receipt." });
       return db.transaction(async (tx) => {
         if (input.to === "cancelled") {
+          await assertNoLivePrompt(tx, [input.id]);
           await releasePendingOrders(tx, [input.id]); // conditional on pending_payment inside
         } else {
           await tx.update(orders).set({ status: input.to }).where(and(eq(orders.id, input.id), eq(orders.status, input.from)));
@@ -66,7 +69,7 @@ export const adminOrdersRouter = router({
       });
     }),
 
-  /** Manual M-Pesa (e.g. till/paybill paid outside the STK flow) until Phase 6 automates it. */
+  /** Manual M-Pesa: a till/paybill payment made outside the STK flow. */
   markPaid: adminProcedure
     .input(z.object({ id: z.string().uuid(), receipt: MpesaReceiptSchema, phone: KenyanPhoneSchema.optional() }))
     .mutation(({ input }) =>
@@ -78,4 +81,34 @@ export const adminOrdersRouter = router({
         })
         .catch((e) => rethrowUnique(e, { mpesa_receipt_number: "That M-Pesa receipt is already recorded on another order." })),
     ),
+
+  /** Payments M-Pesa completed that couldn't pay their order. Refund them in the M-Pesa portal, then mark them here. */
+  refunds: adminProcedure.query(() =>
+    db
+      .select({
+        id: payments.id,
+        orderId: payments.orderId,
+        orderStatus: orders.status,
+        amountCents: payments.amountCents,
+        phone: payments.phone,
+        receipt: payments.receipt,
+        createdAt: payments.createdAt,
+        customerName: user.name,
+      })
+      .from(payments)
+      .innerJoin(orders, eq(orders.id, payments.orderId))
+      .innerJoin(user, eq(user.id, orders.userId))
+      .where(needsRefund)
+      .orderBy(desc(payments.createdAt)),
+  ),
+
+  markRefunded: adminProcedure.input(z.object({ paymentId: z.string().uuid() })).mutation(async ({ input }) => {
+    const [done] = await db
+      .update(payments)
+      .set({ refundedAt: new Date() })
+      .where(and(eq(payments.id, input.paymentId), needsRefund))
+      .returning({ id: payments.id });
+    if (!done) throw new TRPCError({ code: "CONFLICT", message: "This payment doesn't need a refund (already handled?)." });
+    return done;
+  }),
 });

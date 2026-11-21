@@ -87,9 +87,9 @@ export const availabilityOf = (p: { status: string; variants: { stock: number }[
 export const availabilityLabel = (p: { availability: Availability; mode: InventoryMode }) =>
   p.availability === "sold" ? "Sold" : p.availability === "reserved" ? (p.mode === "UPCYCLED" ? "Reserved" : "Sold out") : null;
 
-/** Price after the product's discount, in cents. */
+/** Price after the product's discount, in cents, rounded to whole shillings (M-Pesa charges whole KES only). */
 export const salePriceCents = (p: Pick<Product, "priceCents" | "discountPercent">) =>
-  Math.round((p.priceCents * (100 - (p.discountPercent ?? 0))) / 100);
+  Math.round((p.priceCents * (100 - (p.discountPercent ?? 0))) / 10_000) * 100;
 
 /** Kenyan mobile number: 07XXXXXXXX, 01XXXXXXXX, 2547XXXXXXXX or +2547XXXXXXXX (spaces allowed). */
 export const KenyanPhoneSchema = z
@@ -167,7 +167,7 @@ const ProductBase = z.object({
   name: z.string().trim().min(2).max(120),
   slug: SlugSchema,
   description: z.string().trim().max(4000).nullable(),
-  priceCents: z.number().int().min(0).max(100_000_000),
+  priceCents: z.number().int().min(0).max(100_000_000).multipleOf(100, "Prices are whole shillings"),
   discountPercent: z.number().int().min(0).max(90).nullable(),
   categoryId: z.string().uuid().nullable(),
   images: z.array(z.string().trim().url().startsWith("https://", "Image URLs must use https")).max(12),
@@ -215,3 +215,49 @@ export const MpesaReceiptSchema = z
   .trim()
   .toUpperCase()
   .regex(/^[A-Z0-9]{10}$/, "M-Pesa receipts are 10 letters/numbers, e.g. QK4XYZ12AB");
+
+// ---- M-Pesa (Daraja STK Push)
+
+/** Unpaid orders hold their stock this long after the last payment attempt (or creation). */
+export const RESERVATION_MINUTES = 20;
+
+const CallbackItem = z.object({ Name: z.string(), Value: z.union([z.string(), z.number()]).optional() });
+
+/** The JSON Safaricom POSTs to the STK callback URL. Unsigned: only trust it after matching the attempt and amount. */
+export const StkCallbackSchema = z.object({
+  Body: z.object({
+    stkCallback: z.object({
+      MerchantRequestID: z.string(),
+      CheckoutRequestID: z.string().min(1),
+      ResultCode: z.coerce.number().int(),
+      ResultDesc: z.string(),
+      CallbackMetadata: z.object({ Item: z.array(CallbackItem) }).optional(),
+    }),
+  }),
+});
+export type StkCallback = z.infer<typeof StkCallbackSchema>;
+
+/** Flatten the callback into the fields we use. */
+export function parseStkCallback(body: StkCallback) {
+  const cb = body.Body.stkCallback;
+  const item = (name: string) => cb.CallbackMetadata?.Item.find((i) => i.Name === name)?.Value;
+  const amount = item("Amount");
+  const receipt = item("MpesaReceiptNumber");
+  const phone = item("PhoneNumber");
+  return {
+    checkoutRequestId: cb.CheckoutRequestID,
+    resultCode: cb.ResultCode,
+    resultDesc: cb.ResultDesc,
+    amountKes: amount === undefined ? undefined : Number(amount),
+    receipt: receipt === undefined ? undefined : String(receipt),
+    phone: phone === undefined ? undefined : String(phone),
+  };
+}
+
+/** Customer-facing reason for a failed STK attempt. Codes beyond these vary across Safaricom docs, so fall back to their text. */
+export const stkFailureMessage = (resultCode: number | null, resultDesc: string | null) =>
+  resultCode === 1032
+    ? "You cancelled the M-Pesa prompt."
+    : resultCode === 1037
+      ? "The M-Pesa prompt timed out before a PIN was entered. Check your phone is on and try again."
+      : `M-Pesa didn't complete the payment${resultDesc ? `: ${resultDesc}` : "."}`;

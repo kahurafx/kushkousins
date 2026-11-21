@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { AddressSchema, KenyanPhoneSchema, type AddressInput } from "@repo/types";
+import { AddressSchema, KenyanPhoneSchema, RESERVATION_MINUTES, stkFailureMessage, type AddressInput } from "@repo/types";
 import { formatKES } from "@repo/ui";
 import { PressableScale } from "@/components/pressable-scale";
 import { ErrorState, Loading } from "@/components/screen";
@@ -38,7 +38,7 @@ export default function Checkout() {
   const bag = useQuery({ ...trpc.cart.validate.queryOptions({ items }), enabled: items.length > 0, staleTime: 0 });
   const createOrder = useMutation(trpc.order.create.mutationOptions());
   const saveAddress = useMutation(trpc.address.create.mutationOptions());
-  const pay = useMutation(trpc.order.mockPay.mutationOptions());
+  const pay = useMutation(trpc.order.pay.mutationOptions());
   const cancel = useMutation(trpc.order.cancel.mutationOptions());
 
   const [choice, setChoice] = useState<string | "new" | null>(null);
@@ -48,6 +48,28 @@ export default function Checkout() {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
+  const [waiting, setWaiting] = useState(false); // STK prompt sent; polling until the callback lands
+  // Poll while the prompt is on the phone; stop at a final answer. The server asks Safaricom if the callback is late.
+  const { data: status } = useQuery({
+    ...trpc.order.paymentStatus.queryOptions({ orderId: order?.id ?? "00000000-0000-0000-0000-000000000000" }),
+    enabled: waiting && !!order,
+    staleTime: 0,
+    refetchInterval: (q) => (q.state.data?.status === "pending_payment" && q.state.data.payment?.status !== "failed" ? 3000 : false),
+  });
+  const settled = !!status && status.status !== "pending_payment" && status.status !== "cancelled";
+  const payFailure =
+    status?.status === "cancelled"
+      ? "This order's reservation was released before payment arrived. If M-Pesa took your money, we'll refund it. Please order again from your bag."
+      : status?.payment?.status === "failed"
+        ? stkFailureMessage(status.payment.resultCode, status.payment.resultDesc)
+        : null;
+  const prompting = waiting && !!order && !settled && !payFailure;
+  useEffect(() => {
+    if (!settled) return;
+    cart.clear();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    queryClient.invalidateQueries({ queryKey: trpc.order.mine.queryKey() });
+  }, [settled, queryClient, trpc]);
 
   if (sessionPending) return <Loading />;
   if (!session) {
@@ -60,7 +82,7 @@ export default function Checkout() {
       </View>
     );
   }
-  if (paid && order) {
+  if ((paid || settled) && order) {
     return (
       <View className="flex-1 items-center bg-canvas px-6 pt-16">
         <Text className="font-sans-medium text-label uppercase text-forest">Payment received</Text>
@@ -113,15 +135,19 @@ export default function Checkout() {
     const p = KenyanPhoneSchema.safeParse(phone);
     if (!p.success) return setError(p.error.issues[0]?.message ?? "Enter a Kenyan mobile number");
     setError(null);
+    setWaiting(false);
     try {
-      await pay.mutateAsync({ orderId: order.id, phone: p.data });
+      const r = await pay.mutateAsync({ orderId: order.id, phone: p.data });
+      if (r.status === "pending_payment") {
+        queryClient.removeQueries({ queryKey: trpc.order.paymentStatus.queryKey({ orderId: order.id }) });
+        return setWaiting(true);
+      }
       cart.clear();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await queryClient.invalidateQueries({ queryKey: trpc.order.mine.queryKey() });
       setPaid(true);
     } catch (e) {
-      const forbidden = (e as { data?: { code?: string } })?.data?.code === "FORBIDDEN";
-      setError(forbidden ? "Online payment isn't live yet. Your pieces are reserved; we'll be in touch to complete payment." : e instanceof Error ? e.message : "Payment failed.");
+      setError(e instanceof Error ? e.message : "Payment failed.");
     }
   }
 
@@ -190,16 +216,42 @@ export default function Checkout() {
         ) : (
           <>
             <Text className="font-display text-display-md text-forest">Pay with M-Pesa</Text>
-            <Text className="mt-3 bg-stone p-3 font-sans text-body-sm text-forest">Test mode: no real M-Pesa prompt is sent. Payment is simulated.</Text>
-            <Text className="mt-5 font-sans-medium text-label uppercase text-forest">M-Pesa phone number</Text>
-            <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" accessibilityLabel="M-Pesa phone number" className={field} />
-            <Primary label={pay.isPending ? "Confirming…" : `Pay ${formatKES(order.totalCents)}`} onPress={payNow} disabled={pay.isPending} />
+            {payFailure && (
+              <Text accessibilityRole="alert" className="mt-4 bg-espresso p-4 font-sans text-body-sm text-canvas">
+                {payFailure}
+              </Text>
+            )}
+            {prompting ? (
+              <View accessibilityLiveRegion="polite" className="mt-5 border border-forest/20 p-5">
+                <Text className="font-sans-medium text-label uppercase text-forest">Check your phone</Text>
+                <Text className="mt-2 font-sans text-body text-forest">
+                  Enter your M-Pesa PIN on the prompt to pay {formatKES(order.totalCents)}. This screen updates by itself.
+                </Text>
+                <Text className="mt-2 font-sans text-body-sm text-forest/70">No prompt? Make sure your phone is on and unlocked. You can send it again in a minute.</Text>
+                <Pressable className="mt-3" accessibilityRole="button" onPress={() => setWaiting(false)}>
+                  <Text className="font-sans-medium text-label uppercase text-forest underline">Use a different number</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                <Text className="mt-3 font-sans text-body-sm text-forest/80">We hold your pieces for {RESERVATION_MINUTES} minutes while you pay.</Text>
+                <Text className="mt-5 font-sans-medium text-label uppercase text-forest">M-Pesa phone number</Text>
+                <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" accessibilityLabel="M-Pesa phone number" className={field} />
+                <Primary label={pay.isPending ? "Sending prompt…" : `Pay ${formatKES(order.totalCents)}`} onPress={payNow} disabled={pay.isPending} />
+              </>
+            )}
             <Pressable
               className="mt-6"
               accessibilityRole="button"
+              disabled={prompting}
+              style={{ opacity: prompting ? 0.4 : 1 }}
               onPress={async () => {
-                await cancel.mutateAsync({ orderId: order.id }).catch(() => {});
-                setOrder(null);
+                try {
+                  await cancel.mutateAsync({ orderId: order.id });
+                  setOrder(null);
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "We couldn't cancel this order.");
+                }
               }}
             >
               <Text className="text-center font-sans-medium text-label uppercase text-forest underline">Cancel order and release items</Text>

@@ -99,6 +99,24 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               <div className="flex justify-between gap-4"><dt className="opacity-70">Phone</dt><dd>{order.mpesaPhone ?? "-"}</dd></div>
               <div className="flex justify-between gap-4"><dt className="opacity-70">Paid</dt><dd>{order.paidAt ? fmtDateTime(order.paidAt) : "Not yet"}</dd></div>
             </dl>
+            {order.payments.length > 0 && (
+              <>
+                <h3 className="mt-4 text-label uppercase opacity-70">Prompts sent</h3>
+                <ul className="mt-2 space-y-1.5 text-body-sm">
+                  {order.payments.map((p) => (
+                    <li key={p.id} className="flex justify-between gap-3">
+                      <span>
+                        {fmtDateTime(p.createdAt)} · {p.phone}
+                        {p.resultDesc && p.status === "failed" && <span className="block opacity-70">{p.resultDesc}</span>}
+                      </span>
+                      <span className={`shrink-0 ${p.status === "succeeded" && !p.applied && !p.refundedAt ? "font-medium text-espresso" : ""}`}>
+                        {p.status === "pending" ? "Waiting" : p.status === "failed" ? "Failed" : p.applied ? "Paid" : p.refundedAt ? "Refunded" : "Refund due"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </section>
         </aside>
       </div>

@@ -25,7 +25,8 @@ pnpm db:studio
   - `images text[]`; `original_material` and `artisan_notes` for UPCYCLED.
   - Curation: `hanging_line_position` / `fan_favorite_position` (null = not shown, lower = first), and `featured` (★ editor's pick, managed from admin curation; migration `0001`).
 - **product_variants**: the **only place stock lives**. NEW has a size × colour matrix. UPCYCLED has exactly one variant with stock 1, which still has a size and colour so filters work. `stock >= 0` CHECK.
-- **orders**: `subtotal/shipping/total_cents`, `shipping_address` jsonb snapshot, `mpesa_checkout_request_id` / `mpesa_receipt_number` (unique, for Phase 6 webhook dedupe), `paid_at`. `user_id` is **`onDelete: restrict`** on purpose, to keep order history. Better Auth admin `removeUser` therefore fails for customers with orders; ban them instead.
+- **orders**: `subtotal/shipping/total_cents`, `shipping_address` jsonb snapshot, `mpesa_receipt_number` (unique; set from the attempt that paid it), `paid_at`. `user_id` is **`onDelete: restrict`** on purpose, to keep order history. Better Auth admin `removeUser` therefore fails for customers with orders; ban them instead.
+- **payments**: one row per STK Push (`checkout_request_id` unique, `amount_cents`, `status` pending|succeeded|failed, `result_code/desc`, `receipt` unique, `applied` = this payment marked the order paid, `queried_at` throttle, `refunded_at`). `succeeded && !applied && refunded_at is null` = refund due.
 - **order_items**: references `variant_id`/`product_id` (set null on delete) and **snapshots** name, size, colour and unit price.
 - **addresses** (Kenyan: county, phone) and **wishlist_items** (PK `user_id + product_id`).
 

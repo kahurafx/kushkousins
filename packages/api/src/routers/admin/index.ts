@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, count, db, desc, eq, inArray, lte, schema, sql } from "@repo/db";
+import { and, count, db, desc, eq, inArray, isNull, lte, schema, sql } from "@repo/db";
 import { revenueStatuses } from "@repo/types";
 import { releaseStaleReservations } from "../../stock";
 import { adminProcedure, router } from "../../trpc";
@@ -7,7 +7,7 @@ import { adminCurationRouter } from "./curation";
 import { adminOrdersRouter } from "./orders";
 import { adminProductsRouter } from "./products";
 
-const { products, productVariants, orders, user } = schema;
+const { products, productVariants, orders, payments, user } = schema;
 const isRevenue = inArray(orders.status, [...revenueStatuses]);
 
 export const adminRouter = router({
@@ -16,7 +16,7 @@ export const adminRouter = router({
   orders: adminOrdersRouter,
 
   overview: adminProcedure.query(async () => {
-    const [[money], byStatus, [cust], [prod], lowStock, daily, recent] = await Promise.all([
+    const [[money], byStatus, [cust], [prod], lowStock, daily, recent, [refunds]] = await Promise.all([
       db
         .select({
           revenueCents: sql<number>`coalesce(sum(${orders.totalCents}) filter (where ${isRevenue}), 0)::int`,
@@ -50,6 +50,10 @@ export const adminRouter = router({
         .innerJoin(user, eq(user.id, orders.userId))
         .orderBy(desc(orders.createdAt))
         .limit(6),
+      db
+        .select({ n: count() })
+        .from(payments)
+        .where(and(eq(payments.status, "succeeded"), eq(payments.applied, false), isNull(payments.refundedAt))),
     ]);
     return {
       ...money!,
@@ -60,10 +64,11 @@ export const adminRouter = router({
       lowStock,
       daily: daily.rows,
       recent,
+      refundsDue: refunds!.n,
     };
   }),
 
-  /** Release unpaid reservations older than N minutes (manual until Phase 6 adds automatic expiry). */
+  /** Release unpaid reservations older than N minutes now (they also expire on their own; see sweepReservations). */
   releaseStale: adminProcedure
     .input(z.object({ olderThanMinutes: z.number().int().min(5).max(60 * 24 * 14) }))
     .mutation(({ input }) =>
