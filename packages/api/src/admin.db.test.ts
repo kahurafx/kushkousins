@@ -135,6 +135,8 @@ test("stale release frees old reservations and leaves fresh ones", { skip }, asy
   await m.db.update(m.schema.orders).set({ createdAt: m.sql`now() - interval '3 hours'` }).where(m.eq(m.schema.orders.id, old.id));
   // Another test file's order.create may lazily release it first; either way it ends released exactly once.
   await admin().admin.releaseStale({ olderThanMinutes: 60 });
+  // SKIP LOCKED: if a concurrent sweep holds the row, it is the one committing the release.
+  for (let i = 0; i < 20 && (await status(old.id)) !== "cancelled"; i++) await new Promise((r) => setTimeout(r, 50));
   assert.equal(await status(old.id), "cancelled");
   assert.equal(await status(fresh.id), "pending_payment");
   assert.equal(await stock(newProduct.variantId), before + 1);

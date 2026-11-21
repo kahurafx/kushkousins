@@ -270,8 +270,8 @@ export function CheckoutFlow({ addresses, mockPayments }: { addresses: SavedAddr
                   <p className="text-body">
                     Enter your M-Pesa PIN on the prompt to pay <strong className="font-medium">{formatKES(order.totalCents)}</strong>. This page updates by itself.
                   </p>
-                  <p className="text-body-sm opacity-70">No prompt? Make sure your phone is on and unlocked. You can send it again in a minute.</p>
-                  <button type="button" className={secondary} onClick={() => setWaiting(false)}>Use a different number</button>
+                  <p className="text-body-sm opacity-70">No prompt? Make sure your phone is on and unlocked. A new prompt can be sent once this one ends, after about a minute.</p>
+                  <button type="button" className={secondary} onClick={() => setWaiting(false)}>Send again or change number</button>
                 </div>
               ) : (
                 <form

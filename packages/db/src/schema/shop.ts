@@ -152,7 +152,8 @@ export const payments = pgTable(
   "payments",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+    // null: Safaricom reported a success we have no attempt for (push timed out after sending the prompt). Refund due.
+    orderId: uuid("order_id").references(() => orders.id, { onDelete: "cascade" }),
     checkoutRequestId: text("checkout_request_id").notNull().unique(),
     phone: text("phone").notNull(),
     amountCents: integer("amount_cents").notNull(),

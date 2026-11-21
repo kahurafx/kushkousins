@@ -134,7 +134,7 @@ test("failure codes leave the order payable; retry works; unknown IDs are ignore
     assert.equal(s.payment?.resultCode, code);
   }
   assert.equal((await attemptsOf(order.id)).length, 3);
-  assert.equal((await callback("ws_CO_nope", 0)).outcome, "unknown");
+  assert.equal((await callback(`ws_CO_${tag}_failed_unknown`, 1032)).outcome, "unknown"); // a failure we never sent: nothing to keep
   assert.equal((await m.payments.handleStkCallback({ hello: "world" })).outcome, "invalid");
 });
 
@@ -143,6 +143,14 @@ test("amount mismatch never pays the order", { skip }, async () => {
   const order = await placeNew(uid("c"));
   await c.order.pay({ orderId: order.id, phone: "0712345678" });
   assert.equal((await callback(lastCheckout, 0, { amount: 1, receipt: "QMISMATCH1" })).outcome, "mismatch");
+  assert.equal((await orderStatus(order.id)).status, "pending_payment");
+  const refunds = await as(uid("admin"), "ADMIN").admin.orders.refunds();
+  assert.ok(refunds.some((r) => r.receipt === "QMISMATCH1")); // if money moved, it's visible
+  // A success without an Amount is never trusted either.
+  await m.db.update(m.schema.payments).set({ createdAt: m.sql`now() - interval '3 minutes'` }).where(m.eq(m.schema.payments.orderId, order.id));
+  await c.order.pay({ orderId: order.id, phone: "0712345678" });
+  const noAmount = await m.payments.handleStkCallback({ Body: { stkCallback: { MerchantRequestID: "m", CheckoutRequestID: lastCheckout, ResultCode: 0, ResultDesc: "ok", CallbackMetadata: { Item: [{ Name: "MpesaReceiptNumber", Value: "QNOAMOUNT1" }] } } } });
+  assert.equal(noAmount.outcome, "mismatch");
   assert.equal((await orderStatus(order.id)).status, "pending_payment");
 });
 
@@ -206,3 +214,18 @@ test("expiry: sweep releases only expired, settled reservations; money after rel
   await assert.rejects(admin.admin.orders.markRefunded({ paymentId: due.id }), { code: "CONFLICT" });
   await assert.rejects(f.admin.orders.refunds(), { code: "FORBIDDEN" });
 });
+
+test("a success for an attempt we never recorded (push timed out) is kept as a refund due", { skip }, async () => {
+  const admin = as(uid("admin"), "ADMIN");
+  const before = (await admin.admin.overview()).refundsDue;
+  const id = `ws_CO_${tag}_orphan`;
+  assert.equal((await callback(id, 0, { amount: 2500, receipt: "QORPHAN001" })).outcome, "needs_refund");
+  assert.equal((await callback(id, 0, { amount: 2500, receipt: "QORPHAN001" })).outcome, "duplicate");
+  const due = (await admin.admin.orders.refunds()).find((r) => r.receipt === "QORPHAN001")!;
+  assert.equal(due.orderId, null);
+  assert.equal(due.amountCents, 250000);
+  assert.equal((await admin.admin.overview()).refundsDue, before + 1);
+  await admin.admin.orders.markRefunded({ paymentId: due.id });
+  await m.db.delete(m.schema.payments).where(m.eq(m.schema.payments.id, due.id)); // not cascaded by the order cleanup
+});
+

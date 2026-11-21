@@ -11,39 +11,61 @@ type Payment = typeof payments.$inferSelect;
 const QUERY_AFTER_MS = 20_000;
 const QUERY_EVERY_MS = 15_000;
 
-export type StkResult = { resultCode: number; resultDesc: string; receipt?: string; amountKes?: number };
+export type StkResult = { resultCode: number; resultDesc: string; receipt?: string; amountKes?: number; phone?: string };
 
 /**
  * Apply a final STK result (from the callback or STK Query) to one attempt. Idempotent: Safaricom retries
  * callbacks and the query can race the callback. Never throws for business reasons: the money may
  * already be taken, so the attempt is always recorded.
  */
-export async function applyStkResult(tx: Tx, checkoutRequestId: string, result: StkResult) {
+export async function applyStkResult(tx: Tx, checkoutRequestId: string, result: StkResult, opts: { fromCallback?: boolean } = {}) {
   const [attempt] = await tx.select().from(payments).where(eq(payments.checkoutRequestId, checkoutRequestId)).for("update");
-  if (!attempt) return { outcome: "unknown" as const };
+  if (!attempt) {
+    if (result.resultCode !== 0 || !opts.fromCallback) return { outcome: "unknown" as const };
+    // Money taken for an attempt we never recorded (the push timed out on our side). Keep it for a refund.
+    await tx
+      .insert(payments)
+      .values({
+        orderId: null,
+        checkoutRequestId,
+        phone: result.phone ?? "unknown",
+        amountCents: Math.round((result.amountKes ?? 0) * 100),
+        status: "succeeded",
+        resultCode: 0,
+        resultDesc: `Unmatched: ${result.resultDesc}`,
+        receipt: result.receipt ?? null,
+      })
+      .onConflictDoNothing();
+    return { outcome: "needs_refund" as const };
+  }
 
   if (attempt.status !== "pending") {
     // A query confirmed success first; the callback brings the receipt.
     if (attempt.status === "succeeded" && !attempt.receipt && result.receipt) {
       await tx.update(payments).set({ receipt: result.receipt }).where(eq(payments.id, attempt.id));
-      if (attempt.applied) {
+      if (attempt.applied && attempt.orderId) {
         await tx.update(orders).set({ mpesaReceiptNumber: result.receipt }).where(and(eq(orders.id, attempt.orderId), isNull(orders.mpesaReceiptNumber)));
       }
     }
     return { outcome: "duplicate" as const };
   }
 
+  const orderId = attempt.orderId;
+  if (!orderId) return { outcome: "duplicate" as const }; // unreachable: only already-settled orphans lack an order
+
   if (result.resultCode !== 0) {
     await tx.update(payments).set({ status: "failed", resultCode: result.resultCode, resultDesc: result.resultDesc }).where(eq(payments.id, attempt.id));
     return { outcome: "failed" as const };
   }
 
-  // Daraja doesn't sign callbacks: the amount must be exactly what we asked for.
-  if (result.amountKes !== undefined && result.amountKes * 100 !== attempt.amountCents) {
+  // Daraja doesn't sign callbacks: a callback success must carry exactly the amount we asked for.
+  // (STK Query results carry no amount; we asked Safaricom ourselves, so those are trusted.)
+  if (opts.fromCallback ? result.amountKes === undefined || result.amountKes * 100 !== attempt.amountCents : false) {
     console.error(`M-Pesa amount mismatch on ${checkoutRequestId}: got KES ${result.amountKes}, expected ${attempt.amountCents / 100}`);
+    // Recorded as a success that isn't applied: if money moved, it shows up as a refund due.
     await tx
       .update(payments)
-      .set({ status: "failed", resultCode: result.resultCode, resultDesc: `Amount mismatch: KES ${result.amountKes}` })
+      .set({ status: "succeeded", resultCode: 0, receipt: result.receipt ?? null, resultDesc: `Amount mismatch: got KES ${result.amountKes ?? "none"}` })
       .where(eq(payments.id, attempt.id));
     return { outcome: "mismatch" as const };
   }
@@ -54,7 +76,7 @@ export async function applyStkResult(tx: Tx, checkoutRequestId: string, result: 
     .where(eq(payments.id, attempt.id));
 
   try {
-    const paid = await markPaid(tx, attempt.orderId, { receipt: result.receipt, phone: attempt.phone });
+    const paid = await markPaid(tx, orderId, { receipt: result.receipt, phone: attempt.phone });
     if (!paid.alreadyPaid) {
       await tx.update(payments).set({ applied: true }).where(eq(payments.id, attempt.id));
       return { outcome: "paid" as const };
@@ -63,7 +85,7 @@ export async function applyStkResult(tx: Tx, checkoutRequestId: string, result: 
     if (!(e instanceof TRPCError && e.code === "CONFLICT")) throw e;
   }
   // Paid after the reservation was released, or paid twice: an admin must refund (see admin.payments).
-  console.error(`M-Pesa payment ${checkoutRequestId} could not be applied to order ${attempt.orderId}: needs a refund`);
+  console.error(`M-Pesa payment ${checkoutRequestId} could not be applied to order ${orderId}: needs a refund`);
   return { outcome: "needs_refund" as const };
 }
 
@@ -72,7 +94,7 @@ export async function handleStkCallback(body: unknown) {
   const parsed = StkCallbackSchema.safeParse(body);
   if (!parsed.success) return { outcome: "invalid" as const };
   const r = parseStkCallback(parsed.data);
-  return db.transaction((tx) => applyStkResult(tx, r.checkoutRequestId, r));
+  return db.transaction((tx) => applyStkResult(tx, r.checkoutRequestId, r, { fromCallback: true }));
 }
 
 /** Ask Safaricom about a pending attempt whose callback hasn't arrived. Throttled per attempt. */
@@ -154,10 +176,15 @@ export async function startPayment(userId: string, orderId: string, phone: strin
         description: "kushkousins",
       });
     } catch (e) {
-      if (e instanceof DarajaError) throw new TRPCError({ code: "BAD_GATEWAY", message: `We couldn't reach M-Pesa: ${e.message}. Please try again.`, cause: e });
-      throw new TRPCError({ code: "BAD_GATEWAY", message: "We couldn't reach M-Pesa. Please try again.", cause: e });
+      if (e instanceof DarajaError) throw new TRPCError({ code: "BAD_GATEWAY", message: `M-Pesa didn't accept the request: ${e.message}. Please try again.`, cause: e });
+      // A timeout may still have sent the prompt: don't invite a blind second charge.
+      throw new TRPCError({ code: "BAD_GATEWAY", message: "We couldn't confirm with M-Pesa. If a prompt appears on your phone, don't pay it; wait a minute, then try again.", cause: e });
     }
-    await tx.insert(payments).values({ orderId, checkoutRequestId: pushed.checkoutRequestId, phone: pushed.msisdn, amountCents: order.totalCents });
+    // A callback can't normally beat this commit; if one did, it left an unmatched row: claim it for this order.
+    await tx
+      .insert(payments)
+      .values({ orderId, checkoutRequestId: pushed.checkoutRequestId, phone: pushed.msisdn, amountCents: order.totalCents })
+      .onConflictDoUpdate({ target: payments.checkoutRequestId, set: { orderId } });
     return { status: "pending_payment" as const, mock: false };
   });
 }

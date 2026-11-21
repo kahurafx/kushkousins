@@ -96,8 +96,8 @@ export const adminOrdersRouter = router({
         customerName: user.name,
       })
       .from(payments)
-      .innerJoin(orders, eq(orders.id, payments.orderId))
-      .innerJoin(user, eq(user.id, orders.userId))
+      .leftJoin(orders, eq(orders.id, payments.orderId)) // null order: an unmatched M-Pesa success
+      .leftJoin(user, eq(user.id, orders.userId))
       .where(needsRefund)
       .orderBy(desc(payments.createdAt)),
   ),

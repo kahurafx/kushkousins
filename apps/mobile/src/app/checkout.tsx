@@ -227,9 +227,9 @@ export default function Checkout() {
                 <Text className="mt-2 font-sans text-body text-forest">
                   Enter your M-Pesa PIN on the prompt to pay {formatKES(order.totalCents)}. This screen updates by itself.
                 </Text>
-                <Text className="mt-2 font-sans text-body-sm text-forest/70">No prompt? Make sure your phone is on and unlocked. You can send it again in a minute.</Text>
+                <Text className="mt-2 font-sans text-body-sm text-forest/70">No prompt? Make sure your phone is on and unlocked. A new prompt can be sent once this one ends, after about a minute.</Text>
                 <Pressable className="mt-3" accessibilityRole="button" onPress={() => setWaiting(false)}>
-                  <Text className="font-sans-medium text-label uppercase text-forest underline">Use a different number</Text>
+                  <Text className="font-sans-medium text-label uppercase text-forest underline">Send again or change number</Text>
                 </Pressable>
               </View>
             ) : (

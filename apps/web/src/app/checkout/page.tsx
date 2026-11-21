@@ -10,7 +10,7 @@ export default async function CheckoutPage() {
     <>
       <h1 className="text-display-lg">Checkout</h1>
       <div className="mt-10">
-        <CheckoutFlow addresses={addresses} mockPayments={process.env.MOCK_PAYMENTS === "true"} />
+        <CheckoutFlow addresses={addresses} mockPayments={process.env.MOCK_PAYMENTS === "true" && process.env.NODE_ENV !== "production"} />
       </div>
     </>
   );
