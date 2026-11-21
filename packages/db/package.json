@@ -1,0 +1,25 @@
+{
+  "name": "@repo/db",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "auth:generate": "pnpm --filter @repo/auth exec auth generate --config src/server.ts --output ../db/src/schema/auth.ts -y"
+  },
+  "dependencies": { "@repo/types": "workspace:*", "drizzle-orm": "^0.45.4", "pg": "^8.23.1" },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22",
+    "@types/pg": "^8",
+    "dotenv": "^17",
+    "drizzle-kit": "^0.31.11",
+    "typescript": "^5.9.0"
+  }
+}

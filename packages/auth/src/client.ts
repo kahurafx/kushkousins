@@ -1,0 +1,7 @@
+import { createAuthClient } from "better-auth/react";
+
+/** Web client. The mobile app builds its own client with @better-auth/expo/client. */
+export const authClient = createAuthClient({
+  baseURL: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+});
+export const { signIn, signUp, signOut, useSession } = authClient;
