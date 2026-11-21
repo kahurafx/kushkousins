@@ -37,3 +37,27 @@ import { compareSizes } from "./index.ts";
 test("compareSizes orders garment sizes, unknowns last", () => {
   assert.deepEqual(["L", "XS", "M", "One", "XL", "S", "32", "28"].sort(compareSizes), ["XS", "S", "M", "L", "XL", "28", "32", "One"]);
 });
+
+import { canTransition, MpesaReceiptSchema, orderTransitions, slugify, AdminProductUpdateSchema } from "./index.ts";
+
+test("order transitions: forward pipeline only, finals are final", () => {
+  const ok: [string, string][] = [["pending_payment", "paid"], ["pending_payment", "cancelled"], ["paid", "processing"], ["processing", "shipped"], ["shipped", "delivered"]];
+  for (const [from, to] of ok) assert.ok(canTransition(from as never, to as never), `${from}→${to}`);
+  const bad: [string, string][] = [["paid", "cancelled"], ["pending_payment", "shipped"], ["shipped", "processing"], ["delivered", "cancelled"], ["cancelled", "paid"], ["paid", "paid"]];
+  for (const [from, to] of bad) assert.ok(!canTransition(from as never, to as never), `${from}→${to}`);
+  assert.deepEqual(orderTransitions.delivered, []);
+  assert.deepEqual(orderTransitions.cancelled, []);
+});
+
+test("slugify and receipt validation", () => {
+  assert.equal(slugify("  Café Kitenge — Bomber!! "), "cafe-kitenge-bomber");
+  assert.equal(MpesaReceiptSchema.parse(" qk4xyz12ab "), "QK4XYZ12AB");
+  assert.ok(!MpesaReceiptSchema.safeParse("QK4XYZ12A").success);
+});
+
+test("admin product update rejects http images and bad slugs", () => {
+  const base = { id: "00000000-0000-4000-8000-000000000000", mode: "UPCYCLED", name: "Test", description: null, priceCents: 100, discountPercent: null, categoryId: null, size: "M", color: "Red", originalMaterial: "Old coat", artisanNotes: "Hand stitched" };
+  assert.ok(AdminProductUpdateSchema.safeParse({ ...base, slug: "ok-slug", images: ["https://x.test/a.jpg"] }).success);
+  assert.ok(!AdminProductUpdateSchema.safeParse({ ...base, slug: "ok-slug", images: ["http://x.test/a.jpg"] }).success);
+  assert.ok(!AdminProductUpdateSchema.safeParse({ ...base, slug: "Bad Slug", images: [] }).success);
+});

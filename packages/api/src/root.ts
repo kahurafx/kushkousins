@@ -1,6 +1,6 @@
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import { addressRouter } from "./routers/address";
-import { adminRouter } from "./routers/admin";
+import { adminRouter } from "./routers/admin/index";
 import { cartRouter } from "./routers/cart";
 import { orderRouter } from "./routers/order";
 import { productRouter } from "./routers/product";

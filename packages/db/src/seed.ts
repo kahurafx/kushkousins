@@ -18,6 +18,7 @@ type Seed = {
   discountPercent?: number;
   hangingLine?: number;
   fanFavorite?: number;
+  featured?: boolean;
   originalMaterial?: string;
   artisanNotes?: string;
   sold?: boolean;
@@ -25,7 +26,7 @@ type Seed = {
 
 const catalog: Seed[] = [
   // ---- NEW (variant matrix, multi-unit stock)
-  { slug: "kousin-heavyweight-hoodie", name: "Kousin Heavyweight Hoodie", mode: "NEW", category: "streetwear", priceKes: 6500, sizes: ["S", "M", "L", "XL"], colors: ["Forest", "Stone"], stock: 12, discountPercent: 20, fanFavorite: 1,
+  { slug: "kousin-heavyweight-hoodie", name: "Kousin Heavyweight Hoodie", mode: "NEW", category: "streetwear", priceKes: 6500, sizes: ["S", "M", "L", "XL"], colors: ["Forest", "Stone"], stock: 12, discountPercent: 20, fanFavorite: 1, featured: true,
     description: "480gsm brushed cotton fleece with a boxy drop shoulder and tonal embroidered wordmark." },
   { slug: "nairobi-boxy-tee", name: "Nairobi Boxy Tee", mode: "NEW", category: "streetwear", priceKes: 2500, sizes: ["S", "M", "L", "XL"], colors: ["Cream", "Espresso"], stock: 25, fanFavorite: 2,
     description: "Heavy jersey tee cut wide and cropped, garment-dyed for a lived-in hand." },
@@ -72,6 +73,7 @@ const categorySeed = [
 ];
 
 const code = (slug: string) => slug.split("-").map((w) => w[0]!.toUpperCase()).join("");
+// Seed SKUs are short codes; admin-created SKUs use the full slug (see packages/api) so they can't collide.
 const sku = (slug: string, size: string, color: string) =>
   `${code(slug)}-${size}-${color.replace(/\s+/g, "").toUpperCase()}`;
 
@@ -101,6 +103,7 @@ async function main() {
         artisanNotes: s.artisanNotes ?? null,
         hangingLinePosition: s.hangingLine ?? null,
         fanFavoritePosition: s.fanFavorite ?? null,
+        featured: s.featured ?? false,
         soldAt: s.sold ? new Date("2026-11-01T10:00:00Z") : null,
       };
       const [product] = await tx

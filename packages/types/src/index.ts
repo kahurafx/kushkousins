@@ -13,6 +13,20 @@ export const orderStatus = ["pending_payment", "paid", "processing", "shipped", 
 export const OrderStatusSchema = z.enum(orderStatus);
 export type OrderStatus = z.infer<typeof OrderStatusSchema>;
 
+/** The only allowed order status moves. Paid orders can't be cancelled here (that's a refund: out of scope). */
+export const orderTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
+  pending_payment: ["paid", "cancelled"],
+  paid: ["processing"],
+  processing: ["shipped"],
+  shipped: ["delivered"],
+  delivered: [],
+  cancelled: [],
+};
+export const canTransition = (from: OrderStatus, to: OrderStatus) => orderTransitions[from].includes(to);
+
+/** Orders that count as revenue. */
+export const revenueStatuses = ["paid", "processing", "shipped", "delivered"] as const satisfies readonly OrderStatus[];
+
 // Better Auth admin plugin stores role as a string; these are the only values we assign.
 export const roles = ["CUSTOMER", "ADMIN"] as const;
 export const RoleSchema = z.enum(roles);
@@ -118,3 +132,71 @@ export const OrderSchema = z.object({
   createdAt: z.coerce.date(),
 });
 export type Order = z.infer<typeof OrderSchema>;
+
+// ---- Admin inventory
+
+export const SlugSchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(120)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Lowercase letters, numbers and single hyphens only");
+
+export const slugify = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120);
+
+const VariantLabel = z.string().trim().min(1).max(40);
+
+const ProductBase = z.object({
+  name: z.string().trim().min(2).max(120),
+  slug: SlugSchema,
+  description: z.string().trim().max(4000).nullable(),
+  priceCents: z.number().int().min(0).max(100_000_000),
+  discountPercent: z.number().int().min(0).max(90).nullable(),
+  categoryId: z.string().uuid().nullable(),
+  images: z.array(z.string().trim().url().startsWith("https://", "Image URLs must use https")).max(12),
+});
+
+const NewVariantInput = z.object({ size: VariantLabel, color: VariantLabel, stock: z.number().int().min(0).max(100_000) });
+const UpcycledFields = z.object({
+  size: VariantLabel,
+  color: VariantLabel,
+  originalMaterial: z.string().trim().min(2).max(300),
+  artisanNotes: z.string().trim().min(2).max(1000),
+});
+
+export const AdminProductCreateSchema = z.discriminatedUnion("mode", [
+  ProductBase.extend({ mode: z.literal("NEW"), variants: z.array(NewVariantInput).min(1).max(60) }),
+  ProductBase.extend({ mode: z.literal("UPCYCLED") }).merge(UpcycledFields),
+]);
+export type AdminProductCreate = z.infer<typeof AdminProductCreateSchema>;
+
+/**
+ * Existing NEW variants carry `expectedStock` (the value the editor loaded): the write is
+ * compare-and-set, so a reservation made while the form was open is never overwritten.
+ */
+export const AdminProductUpdateSchema = z.discriminatedUnion("mode", [
+  ProductBase.extend({
+    id: z.string().uuid(),
+    mode: z.literal("NEW"),
+    variants: z
+      .array(NewVariantInput.extend({ id: z.string().uuid().optional(), expectedStock: z.number().int().min(0).optional() }))
+      .min(1)
+      .max(60),
+  }),
+  ProductBase.extend({ id: z.string().uuid(), mode: z.literal("UPCYCLED") }).merge(UpcycledFields),
+]);
+export type AdminProductUpdate = z.infer<typeof AdminProductUpdateSchema>;
+
+/** M-Pesa receipt numbers are 10 uppercase letters/digits, e.g. QK4XYZ12AB. */
+export const MpesaReceiptSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z0-9]{10}$/, "M-Pesa receipts are 10 letters/numbers, e.g. QK4XYZ12AB");

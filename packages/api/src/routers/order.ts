@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { and, asc, db, desc, eq, gte, inArray, schema, sql } from "@repo/db";
 import { CreateOrderSchema, KenyanPhoneSchema, salePriceCents, shippingCents } from "@repo/types";
-import { releasePendingOrders } from "../stock";
+import { markPaid, releasePendingOrders } from "../stock";
 import { protectedProcedure, router } from "../trpc";
 
 const { orders, orderItems, products, productVariants } = schema;
@@ -109,31 +109,13 @@ export const orderRouter = router({
     .mutation(async ({ ctx, input }) => {
       if (process.env.MOCK_PAYMENTS !== "true") throw new TRPCError({ code: "FORBIDDEN", message: "Mock payments are disabled." });
       return db.transaction(async (tx) => {
-        const [order] = await tx
-          .select({ id: orders.id, status: orders.status })
+        const [mine] = await tx
+          .select({ id: orders.id })
           .from(orders)
-          .where(and(eq(orders.id, input.orderId), eq(orders.userId, ctx.session.user.id)))
-          .for("update");
-        if (!order) throw new TRPCError({ code: "NOT_FOUND" });
-        if (order.status === "paid") return { id: order.id, status: order.status }; // idempotent
-        if (order.status !== "pending_payment") throw new TRPCError({ code: "CONFLICT", message: "Order is not awaiting payment." });
-
-        const [paid] = await tx
-          .update(orders)
-          .set({ status: "paid", paidAt: new Date(), mpesaPhone: input.phone })
-          .where(eq(orders.id, order.id))
-          .returning({ id: orders.id, status: orders.status });
-
-        // 1-of-1s become SOLD only once paid (while merely reserved they show as unavailable).
-        const items = await tx.select({ productId: orderItems.productId }).from(orderItems).where(eq(orderItems.orderId, order.id));
-        const productIds = items.flatMap((i) => (i.productId ? [i.productId] : []));
-        if (productIds.length) {
-          await tx
-            .update(products)
-            .set({ status: "sold", soldAt: new Date() })
-            .where(and(inArray(products.id, productIds), eq(products.mode, "UPCYCLED")));
-        }
-        return paid!;
+          .where(and(eq(orders.id, input.orderId), eq(orders.userId, ctx.session.user.id)));
+        if (!mine) throw new TRPCError({ code: "NOT_FOUND" });
+        const { id, status } = await markPaid(tx, mine.id, { phone: input.phone });
+        return { id, status };
       });
     }),
 

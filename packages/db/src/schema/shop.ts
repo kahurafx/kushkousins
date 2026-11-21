@@ -45,6 +45,7 @@ export const products = pgTable(
     // Landing curation: null = not shown; lower = earlier
     hangingLinePosition: integer("hanging_line_position"),
     fanFavoritePosition: integer("fan_favorite_position"),
+    featured: boolean("featured").notNull().default(false), // editor's pick: star badge
     soldAt: timestamp("sold_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()).notNull(),
