@@ -10,7 +10,7 @@
   - `role` has `input: false`, so sign-up can't set it (verified: it returns 400).
   - Make the first admin with `pnpm promote-admin <email>` after signing up.
   - Enforce in tRPC `adminProcedure` / server code, never only on the client.
-- `trustedOrigins` must include the mobile scheme `kushkousins://` (from `apps/mobile/app.json`).
+- `trustedOrigins` is `["kushkousins://"]` (the mobile scheme in `apps/mobile/app.json`). **Don't add `exp://` by hand**: the `expo()` plugin adds it in development only (Expo Go), so production doesn't trust it. Native requests send `expo-origin`, which the plugin copies into `origin`.
 - After adding a plugin: `pnpm auth:generate` (CLI `auth@1.7.27`, devDependency), then `pnpm db:generate && pnpm db:migrate`.
 - Env: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `DATABASE_URL`. Document them in `.env.example` and never read `.env*`.
 - Use the `docs` subagent (Better Auth `llms.txt`) before you touch plugin APIs, because they change between minors.
