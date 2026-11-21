@@ -8,7 +8,7 @@ import { adminProcedure, router } from "../../trpc";
 const { products, productVariants, orders, orderItems, categories } = schema;
 const uniqueMessages = {
   products_slug: "Another product already uses that URL slug.",
-  product_variants_sku: "That size/colour SKU already exists on another product.",
+  product_variants_sku: "That size + colour already exists (its SKU is taken). Use a different combination or edit the existing row.",
 };
 
 /** Full slug + size + colour: unlike short codes, can't collide across products. */

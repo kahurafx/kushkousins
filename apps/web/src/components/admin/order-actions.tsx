@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { MpesaReceiptSchema, orderTransitions, type OrderStatus } from "@repo/types";
+import { KenyanPhoneSchema, MpesaReceiptSchema, orderTransitions, type OrderStatus } from "@repo/types";
 import { statusLabel } from "@/lib/admin-format";
 import { useTRPC } from "@/lib/trpc";
 
@@ -11,7 +11,7 @@ const primary = "bg-forest px-4 py-2.5 text-label uppercase text-canvas transiti
 const secondary = "border border-forest px-4 py-2.5 text-label uppercase transition-transform duration-100 active:scale-[0.97] disabled:opacity-50";
 
 /** Only the legal next moves (from the shared transition map) are offered. */
-export function OrderActions({ id, status, phone }: { id: string; status: OrderStatus; phone: string | null }) {
+export function OrderActions({ id, status }: { id: string; status: OrderStatus }) {
   const trpc = useTRPC();
   const router = useRouter();
   const done = { onSuccess: () => router.refresh() };
@@ -43,8 +43,11 @@ export function OrderActions({ id, status, phone }: { id: string; status: OrderS
               const f = new FormData(e.currentTarget);
               const receipt = MpesaReceiptSchema.safeParse(String(f.get("receipt") ?? ""));
               if (!receipt.success) return setReceiptError(receipt.error.issues[0]!.message);
+              const rawPhone = String(f.get("payer") ?? "").trim();
+              const payer = rawPhone ? KenyanPhoneSchema.safeParse(rawPhone) : null;
+              if (payer && !payer.success) return setReceiptError(`Paid from: ${payer.error.issues[0]!.message}`);
               setReceiptError(null);
-              markPaid.mutate({ id, receipt: receipt.data, phone: phone ?? undefined });
+              markPaid.mutate({ id, receipt: receipt.data, phone: payer?.data });
             }}
           >
             <label className="block text-label uppercase">
@@ -64,6 +67,10 @@ export function OrderActions({ id, status, phone }: { id: string; status: OrderS
                   For payments received outside checkout (till/paybill). Marks 1-of-1s sold.
                 </span>
               )}
+            </label>
+            <label className="block text-label uppercase">
+              Paid from (optional)
+              <input name="payer" type="tel" autoComplete="off" placeholder="07XX XXX XXX" className="mt-1 block w-full max-w-xs border border-forest/25 bg-transparent px-3 py-2" />
             </label>
             <button type="submit" className={primary} disabled={markPaid.isPending}>
               {markPaid.isPending ? "Recording…" : "Mark paid"}

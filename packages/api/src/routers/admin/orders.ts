@@ -11,7 +11,8 @@ export const adminOrdersRouter = router({
   list: adminProcedure
     .input(z.object({ status: OrderStatusSchema.optional(), q: z.string().trim().max(80).optional(), limit: z.number().int().min(1).max(100).default(50), offset: z.number().int().min(0).default(0) }))
     .query(({ input }) => {
-      const q = input.q?.replace(/[\\%_]/g, (c) => `\\${c}`);
+      // Refs are shown as #1E3BB00E: accept the # and either case.
+      const q = input.q?.replace(/^#/, "").replace(/[\\%_]/g, (c) => `\\${c}`);
       return db
         .select({
           id: orders.id,
@@ -29,7 +30,7 @@ export const adminOrdersRouter = router({
         .where(
           and(
             input.status ? eq(orders.status, input.status) : undefined,
-            q ? or(ilike(user.email, `%${q}%`), ilike(user.name, `%${q}%`), ilike(sql`${orders.id}::text`, `${q}%`), ilike(orders.mpesaReceiptNumber, `%${q}%`)) : undefined,
+            q ? or(ilike(user.email, `%${q}%`), ilike(user.name, `%${q}%`), ilike(sql`${orders.id}::text`, `${q.toLowerCase()}%`), ilike(orders.mpesaReceiptNumber, `%${q}%`)) : undefined,
           ),
         )
         .orderBy(desc(orders.createdAt))

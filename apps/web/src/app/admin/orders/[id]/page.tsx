@@ -71,7 +71,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
           <section>
             <h2 className="text-label uppercase">Actions</h2>
             <div className="mt-3">
-              <OrderActions id={order.id} status={order.status} phone={order.mpesaPhone ?? a.phone} />
+              <OrderActions id={order.id} status={order.status} />
             </div>
           </section>
         </div>

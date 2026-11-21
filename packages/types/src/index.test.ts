@@ -38,7 +38,7 @@ test("compareSizes orders garment sizes, unknowns last", () => {
   assert.deepEqual(["L", "XS", "M", "One", "XL", "S", "32", "28"].sort(compareSizes), ["XS", "S", "M", "L", "XL", "28", "32", "One"]);
 });
 
-import { canTransition, MpesaReceiptSchema, orderTransitions, slugify, AdminProductUpdateSchema } from "./index.ts";
+import { AdminProductCreateSchema, canTransition, MpesaReceiptSchema, orderTransitions, slugify, AdminProductUpdateSchema } from "./index.ts";
 
 test("order transitions: forward pipeline only, finals are final", () => {
   const ok: [string, string][] = [["pending_payment", "paid"], ["pending_payment", "cancelled"], ["paid", "processing"], ["processing", "shipped"], ["shipped", "delivered"]];
@@ -60,4 +60,11 @@ test("admin product update rejects http images and bad slugs", () => {
   assert.ok(AdminProductUpdateSchema.safeParse({ ...base, slug: "ok-slug", images: ["https://x.test/a.jpg"] }).success);
   assert.ok(!AdminProductUpdateSchema.safeParse({ ...base, slug: "ok-slug", images: ["http://x.test/a.jpg"] }).success);
   assert.ok(!AdminProductUpdateSchema.safeParse({ ...base, slug: "Bad Slug", images: [] }).success);
+});
+
+test("admin product schemas reject duplicate size + colour rows (trimmed, any case)", () => {
+  const base = { mode: "NEW", name: "Tee", slug: "tee", description: null, priceCents: 100, discountPercent: null, categoryId: null, images: [] };
+  assert.ok(AdminProductCreateSchema.safeParse({ ...base, variants: [{ size: "M", color: "Black", stock: 1 }, { size: "L", color: "Black", stock: 1 }] }).success);
+  assert.ok(!AdminProductCreateSchema.safeParse({ ...base, variants: [{ size: "M", color: "Black", stock: 1 }, { size: " m ", color: "black", stock: 2 }] }).success);
+  assert.ok(!AdminProductUpdateSchema.safeParse({ ...base, id: "00000000-0000-4000-8000-000000000000", variants: [{ size: "M", color: "Black", stock: 1 }, { size: "M", color: "BLACK", stock: 1 }] }).success);
 });

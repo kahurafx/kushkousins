@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { formatKES } from "@repo/ui";
 import { CancelOrderButton } from "@/components/account-client";
+import { TZ } from "@/lib/admin-format";
 import { requireSession } from "@/lib/session";
 import { sessionCaller } from "@/lib/trpc-server";
 
@@ -38,7 +39,7 @@ export default async function OrdersPage() {
             </p>
           </div>
           <p className="mt-1 text-body-sm opacity-70">
-            {o.createdAt.toLocaleDateString("en-KE", { day: "numeric", month: "long", year: "numeric" })} ·{" "}
+            {o.createdAt.toLocaleDateString("en-KE", { day: "numeric", month: "long", year: "numeric", timeZone: TZ })} ·{" "}
             {o.items.map((i) => `${i.productName} ×${i.quantity}`).join(", ")}
           </p>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-4">

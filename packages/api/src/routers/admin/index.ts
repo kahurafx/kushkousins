@@ -20,7 +20,7 @@ export const adminRouter = router({
       db
         .select({
           revenueCents: sql<number>`coalesce(sum(${orders.totalCents}) filter (where ${isRevenue}), 0)::int`,
-          revenue30Cents: sql<number>`coalesce(sum(${orders.totalCents}) filter (where ${isRevenue} and ${orders.paidAt} >= now() - interval '30 days'), 0)::int`,
+          revenue30Cents: sql<number>`coalesce(sum(${orders.totalCents}) filter (where ${isRevenue} and ${orders.paidAt} >= (now() at time zone 'UTC') - interval '30 days'), 0)::int`,
           paidOrders: sql<number>`(count(*) filter (where ${isRevenue}))::int`,
         })
         .from(orders),
@@ -34,14 +34,14 @@ export const adminRouter = router({
         .where(and(eq(products.mode, "NEW"), eq(products.status, "active"), lte(productVariants.stock, 2)))
         .orderBy(productVariants.stock)
         .limit(8),
-      // Revenue per day for the last 30 days, zero-filled.
-      // shortcut: timestamps are tz-less (server-local); move to timestamptz if the team spans time zones.
+      // Revenue per day for the last 30 days, zero-filled, on Nairobi calendar days.
+      // Timestamps are stored as UTC (drizzle writes toISOString; the DB runs in UTC), so convert explicitly.
       db.execute<{ day: string; cents: number }>(sql`
         select to_char(d.day, 'YYYY-MM-DD') as day,
                coalesce(sum(o.total_cents), 0)::int as cents
-        from generate_series(current_date - 29, current_date, interval '1 day') as d(day)
+        from generate_series((now() at time zone 'Africa/Nairobi')::date - 29, (now() at time zone 'Africa/Nairobi')::date, interval '1 day') as d(day)
         left join orders o
-          on o.paid_at::date = d.day::date
+          on (o.paid_at at time zone 'UTC' at time zone 'Africa/Nairobi')::date = d.day::date
          and o.status in ('paid', 'processing', 'shipped', 'delivered')
         group by d.day order by d.day`),
       db

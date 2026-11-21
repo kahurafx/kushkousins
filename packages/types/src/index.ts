@@ -163,6 +163,10 @@ const ProductBase = z.object({
   images: z.array(z.string().trim().url().startsWith("https://", "Image URLs must use https")).max(12),
 });
 
+const uniquePairs = (rows: { size: string; color: string }[]) =>
+  new Set(rows.map((r) => `${r.size.trim().toLowerCase()}|${r.color.trim().toLowerCase()}`)).size === rows.length;
+const pairMessage = { message: "Each size + colour combination can appear only once", path: ["variants"] };
+
 const NewVariantInput = z.object({ size: VariantLabel, color: VariantLabel, stock: z.number().int().min(0).max(100_000) });
 const UpcycledFields = z.object({
   size: VariantLabel,
@@ -172,7 +176,7 @@ const UpcycledFields = z.object({
 });
 
 export const AdminProductCreateSchema = z.discriminatedUnion("mode", [
-  ProductBase.extend({ mode: z.literal("NEW"), variants: z.array(NewVariantInput).min(1).max(60) }),
+  ProductBase.extend({ mode: z.literal("NEW"), variants: z.array(NewVariantInput).min(1).max(60).refine(uniquePairs, pairMessage) }),
   ProductBase.extend({ mode: z.literal("UPCYCLED") }).merge(UpcycledFields),
 ]);
 export type AdminProductCreate = z.infer<typeof AdminProductCreateSchema>;
@@ -188,7 +192,8 @@ export const AdminProductUpdateSchema = z.discriminatedUnion("mode", [
     variants: z
       .array(NewVariantInput.extend({ id: z.string().uuid().optional(), expectedStock: z.number().int().min(0).optional() }))
       .min(1)
-      .max(60),
+      .max(60)
+      .refine(uniquePairs, pairMessage),
   }),
   ProductBase.extend({ id: z.string().uuid(), mode: z.literal("UPCYCLED") }).merge(UpcycledFields),
 ]);

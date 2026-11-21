@@ -106,6 +106,8 @@ test("order pipeline: illegal and stale moves refused; manual M-Pesa payment; fu
   assert.equal(await status(order.id), "delivered");
   const listed = await a.list({ q: "QK4XYZ12AB" });
   assert.deepEqual(listed.map((o) => o.id), [order.id]);
+  const byRef = await a.list({ q: `#${order.id.slice(0, 8).toUpperCase()}` }); // as shown in the UI
+  assert.deepEqual(byRef.map((o) => o.id), [order.id]);
 
   // Cancel releases stock; paying a cancelled order is refused with a clear message.
   const before = await stock(newProduct.variantId);
