@@ -38,6 +38,9 @@ Internal packages are **source-only TypeScript** (`exports` point at `src/*.ts`)
 - Inventory has two modes: **NEW** (size/colour variants, multi-unit stock) and **UPCYCLED** (one variant, stock 1). **Stock lives only on `product_variants`** and changes atomically in one DB transaction.
 - **Stock is reserved when the order is created** (`order.create`), not at payment, so a 1-of-1 can never be sold twice. Each account holds at most one pending reservation (a new order releases the old one). UPCYCLED products become `sold` only when the order is **paid**; while merely reserved they show as "Reserved".
 - `MOCK_PAYMENTS=true` (dev only) enables `order.mockPay`. It fails closed when unset and must never be set in production.
+- **Order status moves** only follow `orderTransitions` in `@repo/types`: pending_payment → paid | cancelled, paid → processing → shipped → delivered. Every write is conditional on the expected current status (`WHERE status = from`), so stale screens get CONFLICT. Cancelling a paid order (a refund) is not supported yet.
+- **Admin stock edits never overwrite blindly.** NEW variant stock is compare-and-set against the value the editor loaded. UPCYCLED pieces have no stock field: sold/available are status actions, and "available" is refused while an unpaid order holds the piece. Variants are updated in place by id and never deleted while reserved.
+- Payment always goes through `markPaid()` (`packages/api/src/stock.ts`), used by `mockPay`, admin manual payment and, in Phase 6, the M-Pesa callback.
 - Order pipeline: `pending_payment → paid → processing → shipped → delivered` (plus `cancelled`).
 
 ## Commands
@@ -59,6 +62,6 @@ pnpm auth:generate       # regenerate Better Auth tables after adding plugins
 1. ✅ Drizzle schema (variants, upcycled fields, curation, addresses, wishlist, M-Pesa columns), idempotent seed, Better Auth email/password + admin RBAC, tRPC (`packages/api`) mounted at `/api/trpc`.
 2. ✅ Chamfered `ProductCard` and the interactive **Hanging Line** (web) with SVG placeholder garments; `/` renders them from seeded data.
 3. ✅ Web storefront: tRPC client, header (nav, search, wishlist, live bag count), Fan Favorites controls, Lookbook, `/about`, PLP `/shop/[category]` (filters/sort/search), PDP `/product/[slug]`, bag drawer, `/checkout` (reserve → mock M-Pesa), `/account` (orders, wishlist, addresses).
-4. Admin dashboard: inventory CRUD (NEW/UPCYCLED), landing curation (Hanging Line order, Fan Favorites discounts), orders and revenue.
+4. ✅ Admin dashboard (`/admin`, `requireAdmin`): overview (KPIs, 30-day revenue chart, low stock, stale-reservation release), inventory (NEW variant rows with compare-and-set stock, UPCYCLED piece + provenance, status actions), curation (drag/keyboard reorder of the Hanging Line, Fan Favorites discount + ★ featured), orders (status pipeline, manual M-Pesa receipt, cancel).
 5. Mobile app: shared types, the tRPC API and auth; touch Hanging Line; 2-column staggered grid; tabs Home/Shop/Upcycled/Bag/Profile.
 6. M-Pesa Daraja STK Push replacing `order.mockPay`; callback webhook (plain route handler) verifies `CheckoutRequestID`, stores `MpesaReceiptNumber`, marks the order paid and UPCYCLED items sold. Stock is **already reserved** at `order.create`, so the callback confirms the reservation rather than decrementing. Also add expiry of unpaid reservations (release stock on STK timeout/failure).

@@ -26,7 +26,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
     <div>
       <Link href="/admin/orders" className="text-label uppercase underline underline-offset-4">All orders</Link>
       <div className="mt-4 flex flex-wrap items-baseline justify-between gap-4">
-        <h1 className="text-display-md tabular-nums">{orderRef(order.id)}</h1>
+        <h1 className="font-sans text-display-sm font-medium tabular-nums">Order {orderRef(order.id)}</h1>
         <p className="text-body-sm opacity-70">Placed {fmtDateTime(order.createdAt)}</p>
       </div>
 

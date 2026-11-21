@@ -35,7 +35,8 @@ export default async function AdminOverview() {
         <Stat label="Revenue, all time" value={formatKES(o.revenueCents)} />
         <Stat label="Paid orders" value={compact(o.paidOrders)} />
         <Stat label="Awaiting payment" value={compact(pending)}>
-          {pending > 0 && <ReleaseStale />}
+          {/* Always mounted so the "N released" result stays visible after the refresh. */}
+          <ReleaseStale />
         </Stat>
         <Stat label="Customers" value={compact(o.customers)} />
         <Stat label="Active products" value={compact(o.activeProducts)} />

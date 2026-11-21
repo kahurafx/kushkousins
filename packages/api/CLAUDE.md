@@ -14,8 +14,17 @@ All app data flows through this router. It is mounted by `apps/web/src/app/api/t
   - `cart.validate`: public. Server prices and availability for a client bag; counts the caller's own pending reservation as available to them.
   - `order.create | cancel | mockPay | byId | mine`: protected, own orders only. `create` reserves stock atomically; `mockPay` is gated by `MOCK_PAYMENTS`.
   - `address.list | create | update | setDefault | remove` and `wishlist.ids | list | toggle`: protected.
-  - `admin.overview`: admin.
-- `src/stock.ts`: `releasePendingOrders(tx, ids)` (restores stock, cancels the orders).
+  - `admin.*` (all `adminProcedure`, in `routers/admin/`):
+    - `admin.overview` and `admin.releaseStale`.
+    - `admin.products.list | byId | categories | create | update | setStatus`.
+    - `admin.curation.get | setHangingLine | setFanFavorites`.
+    - `admin.orders.list | byId | setStatus | markPaid`.
+- `src/stock.ts`:
+  - `releasePendingOrders(tx, ids)`: cancels only still-pending orders, then restocks exactly those.
+  - `markPaid(tx, id, {receipt, phone})`: conditional, idempotent on paid, refuses cancelled, marks 1-of-1s sold.
+  - `releaseStaleReservations(tx, cutoff)`: `SKIP LOCKED`.
+  - `rethrowUnique(e, map)`: Postgres 23505 → friendly CONFLICT.
+- Admin-created SKUs are `SLUG-SIZE-COLOUR` (full slug, can't collide). Seed SKUs are short codes.
 - `src/index.ts` is **server-only** (`appRouter`, `createTRPCContext`, types `AppRouter`, `RouterInputs`, `RouterOutputs`).
 
 ## Rules
@@ -23,7 +32,7 @@ All app data flows through this router. It is mounted by `apps/web/src/app/api/t
 - Pick the narrowest procedure: admin writes use `adminProcedure`, and customer data uses `protectedProcedure` and filters by `ctx.session.user.id`.
 - Listings exclude `status = 'archived'` but **include `sold`**, so the UI can show SOLD.
 - Stock-changing mutations run in one `db.transaction` with conditional updates (see `packages/db/CLAUDE.md`).
-- Tests: `pnpm --filter @repo/api test` (`tsx --test`). Test middleware with `createCallerFactory` and fake contexts. `order.db.test.ts` (double-purchase race, reservation release, mockPay gate) runs only with `TEST_DATABASE_URL` set to a disposable dev DB.
+- Tests: `pnpm --filter @repo/api test` (`tsx --test`). Test middleware with `createCallerFactory` and fake contexts. `order.db.test.ts` (double-purchase race, reservation release, mockPay gate) and `admin.db.test.ts` (RBAC, transitions, manual payment, compare-and-set stock, reserved 1-of-1 guard, stale release, curation) run only with `TEST_DATABASE_URL` set to a disposable dev DB. Note: `admin.releaseStale` in the test releases *any* stale pending order in that DB.
 - Sale-price SQL (`salePriceSql` in `routers/product.ts`) must stay identical to `salePriceCents()` in `@repo/types`.
 - Keep **one** copy of `@trpc/server` in the lockfile (align `@types/node` ranges across packages). Two copies break `instanceof TRPCError`.
 - Not tRPC: `/api/auth/*` (Better Auth) and the Phase 6 M-Pesa callback (a plain route handler).

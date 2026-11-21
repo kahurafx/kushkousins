@@ -96,7 +96,7 @@ export function CurationBoard({ data }: { data: Data }) {
   return (
     <MotionConfig reducedMotion="user">
       <p aria-live="polite" className="sr-only">{announce}</p>
-      <div className="grid gap-10 xl:grid-cols-2">
+      <div className="grid gap-10 2xl:grid-cols-2">
         <section aria-labelledby="hl-title">
           <h2 id="hl-title" className="text-display-sm">The Hanging Line</h2>
           <p className="mt-1 text-body-sm opacity-70">Hero rack on the homepage, left to right. Drag the handle or use the arrows.</p>
@@ -168,7 +168,7 @@ export function CurationBoard({ data }: { data: Data }) {
                       }}
                       className="w-12 border border-forest/25 bg-transparent px-1.5 py-1 text-right tabular-nums"
                     />
-                    % <span className="hidden tabular-nums opacity-60 sm:inline">→ {formatKES(salePriceCents({ priceCents: p.priceCents, discountPercent: f.discountPercent }))}</span>
+                    % <span className="hidden w-24 tabular-nums opacity-60 sm:inline">→ {formatKES(salePriceCents({ priceCents: p.priceCents, discountPercent: f.discountPercent }))}</span>
                   </label>
                   <label className="flex items-center gap-1 text-body-sm">
                     <input type="checkbox" checked={f.featured} onChange={(e) => set({ featured: e.target.checked })} />★<span className="sr-only"> editor&apos;s pick for {p.name}</span>

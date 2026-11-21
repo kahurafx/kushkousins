@@ -16,7 +16,8 @@ Read [../../packages/ui/DESIGN.md](../../packages/ui/DESIGN.md) before building 
   - `/account`, `/account/wishlist`, `/account/addresses`: the `(member)` group; each page calls `requireSession(path)`.
 - tRPC: `src/components/providers.tsx` (QueryClient + `httpBatchLink` + superjson), `src/lib/trpc.ts` (`useTRPC`), `src/lib/trpc-server.ts` (`publicCaller()` and `sessionCaller()`, server-only). `src/lib/session.ts` provides `getSession` and `requireSession`.
 - Bag: `src/lib/cart.ts` stores `{variantId, quantity}` only (useSyncExternalStore + guarded localStorage + cross-tab sync) plus `bagDrawer`. Prices and stock always come from `cart.validate`.
-- Admin: `src/app/admin/**`. Guard it **on the server** in `admin/layout.tsx` with `auth.api.getSession({ headers: await headers() })` and require `role === "ADMIN"`; otherwise redirect. Never guard admin only on the client.
+- Admin: `src/app/admin/**`: `/admin` (overview), `/admin/inventory` (+ `/new`, `/[id]`), `/admin/curation`, `/admin/orders` (+ `/[id]`). **Every admin page calls `requireAdmin(path)`** (`src/lib/session.ts`), the layout too: layouts and pages render in parallel, so a layout-only guard isn't enough. Signed out → sign-in; non-admin → 404. It uses `isAdmin()` (multi-role safe), never `role === "ADMIN"`. The layout sets `robots: noindex`. Admin components live in `src/components/admin/`.
+- The product editor is remounted with `key={product.updatedAt}` after each save, so its compare-and-set stock baseline is fresh.
 
 ## Components
 - `src/components/product-card.tsx`: the chamfered card. The chamfer clips only the backdrop layer so the focus ring is never clipped, the link is stretched over the card, and the quick-add button is a sibling (never inside the `<a>`). Shows pills (discount, UPCYCLED, SOLD), an optional star and a disabled button when sold.
