@@ -60,6 +60,21 @@ export type Product = z.infer<typeof ProductSchema>;
 export const salePriceCents = (p: Pick<Product, "priceCents" | "discountPercent">) =>
   Math.round((p.priceCents * (100 - (p.discountPercent ?? 0))) / 100);
 
+/** Kenyan mobile number: 07XXXXXXXX, 01XXXXXXXX, 2547XXXXXXXX or +2547XXXXXXXX (spaces allowed). */
+export const KenyanPhoneSchema = z
+  .string()
+  .transform((s) => s.replace(/\s+/g, ""))
+  .pipe(z.string().regex(/^(?:\+?254|0)[17]\d{8}$/, "Enter a Kenyan mobile number, e.g. 0712 345 678"));
+
+/** M-Pesa (Daraja) wants 2547XXXXXXXX. Input must already pass KenyanPhoneSchema. */
+export const toMsisdn = (phone: string) => `254${phone.replace(/\s+/g, "").replace(/^(?:\+?254|0)/, "")}`;
+
+// shortcut: flat shipping guess (KES 400, free from KES 10,000). Confirm with the business; move to admin settings in Phase 4.
+export const FREE_SHIPPING_FROM_CENTS = 1_000_000;
+export const SHIPPING_CENTS = 40_000;
+export const shippingCents = (subtotalCents: number) =>
+  subtotalCents === 0 || subtotalCents >= FREE_SHIPPING_FROM_CENTS ? 0 : SHIPPING_CENTS;
+
 export const CartItemSchema = z.object({
   variantId: z.string().uuid(),
   quantity: z.number().int().positive().max(20),
@@ -69,7 +84,7 @@ export type CartItem = z.infer<typeof CartItemSchema>;
 export const AddressSchema = z.object({
   label: z.string().max(40).optional(),
   recipientName: z.string().min(1).max(120),
-  phone: z.string().regex(/^(?:\+?254|0)[17]\d{8}$/, "Kenyan phone number"),
+  phone: KenyanPhoneSchema,
   line1: z.string().min(1).max(200),
   line2: z.string().max(200).optional(),
   city: z.string().min(1).max(80),
@@ -79,7 +94,7 @@ export const AddressSchema = z.object({
 export type AddressInput = z.infer<typeof AddressSchema>;
 
 export const CreateOrderSchema = z.object({
-  items: z.array(CartItemSchema).min(1),
+  items: z.array(CartItemSchema).min(1).max(50),
   shippingAddress: AddressSchema,
 });
 export type CreateOrderInput = z.infer<typeof CreateOrderSchema>;
