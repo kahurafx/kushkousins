@@ -9,6 +9,8 @@ A native translation of the storefront, not a webview. Read [../../packages/ui/D
 - `src/lib/auth-client.ts` is the Better Auth client (`@better-auth/expo/client`, tokens in `expo-secure-store`, scheme `kushkousins`). The scheme must match `app.json` → `scheme` and `trustedOrigins` in `packages/auth/src/server.ts`.
 - The API base URL is `EXPO_PUBLIC_API_URL` (the Next.js server). On a physical device, use the machine's LAN IP. See `.env.example`.
 - The template files in `src/components` and `src/hooks` are placeholders; replace them in Phase 5.
+- **Known pre-existing `check-types` failures** (from the Expo template, not regressions): `animated-icon.web.tsx` (CSS module import), `app-tabs.web.tsx` (ref type), and `constants/theme.ts` (`@/global.css` import). They go away when the template files are replaced in Phase 5.
+- `@repo/ui` is not yet a dependency here. Add `"@repo/ui": "workspace:*"` when Phase 5 starts.
 
 ## UI spec
 - **Hanging Line:** a horizontal gesture carousel (Gesture Handler + Reanimated). It tracks 1:1, projects momentum, snaps to centre, hands off velocity to `spring.flick`, scales up the centred garment and reveals its card, with an `expo-haptics` light impact on snap. It rubber-bands at the ends.

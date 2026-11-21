@@ -2,7 +2,7 @@
 
 Act as a Principal Full-Stack Engineer and Senior UI/UX Designer. We are building a luxury-editorial e-commerce ecosystem for **kushkousins**, a fashion brand that sells **New** and **One-of-a-Kind Upcycled** clothing. The look is Gucci-style editorial minimalism (large serif type, ample whitespace, tactile interactions) combined with geometric, chamfered-corner product cards. Currency is **KES**.
 
-The design system lives in [packages/ui/DESIGN.md](packages/ui/DESIGN.md). Read it before any UI work.
+The full product brief is [docs/BRIEF.md](docs/BRIEF.md). **Read it before starting any phase**, because it is the complete feature spec. The design system lives in [packages/ui/DESIGN.md](packages/ui/DESIGN.md). Read it before any UI work.
 
 ## Rules
 - **Consult the advisor before locking a plan, after the same error occurs twice, and before calling a task done.**
