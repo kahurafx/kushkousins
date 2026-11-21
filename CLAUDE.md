@@ -35,13 +35,16 @@ Internal packages are **source-only TypeScript** (`exports` point at `src/*.ts`)
 - **All app data goes through tRPC** (`packages/api`), with `.input()` built from `@repo/types` zod schemas, so web and mobile share one API. There are only two non-tRPC endpoints: `/api/auth/*` (Better Auth) and the Phase 6 M-Pesa callback (a plain route handler, because Safaricom POSTs raw JSON).
 - Clients use `import type { AppRouter } from "@repo/api"` only. A value import would bundle `db`/`pg` into the browser or app.
 - **Authorization is enforced in tRPC procedures** (`adminProcedure`, `protectedProcedure`), never only in the UI.
-- Inventory has two modes: **NEW** (size/colour variants, multi-unit stock) and **UPCYCLED** (one variant, stock 1, product status → `sold` on paid checkout). **Stock lives only on `product_variants`** and changes atomically in one DB transaction.
+- Inventory has two modes: **NEW** (size/colour variants, multi-unit stock) and **UPCYCLED** (one variant, stock 1). **Stock lives only on `product_variants`** and changes atomically in one DB transaction.
+- **Stock is reserved when the order is created** (`order.create`), not at payment, so a 1-of-1 can never be sold twice. Each account holds at most one pending reservation (a new order releases the old one). UPCYCLED products become `sold` only when the order is **paid**; while merely reserved they show as "Reserved".
+- `MOCK_PAYMENTS=true` (dev only) enables `order.mockPay`. It fails closed when unset and must never be set in production.
 - Order pipeline: `pending_payment → paid → processing → shipped → delivered` (plus `cancelled`).
 
 ## Commands
 ```bash
 pnpm dev                 # all apps
 pnpm build | pnpm check-types | pnpm lint | pnpm test
+TEST_DATABASE_URL=postgres://postgres:postgres@localhost:54329/kushkousins pnpm --filter @repo/api test  # + DB race tests
 docker compose up -d     # Postgres 17 on :54329
 pnpm db:generate         # drizzle migration from schema changes
 pnpm db:migrate
@@ -55,7 +58,7 @@ pnpm auth:generate       # regenerate Better Auth tables after adding plugins
 0. ✅ Scaffold the monorepo, Claude setup and design tokens (`packages/ui`).
 1. ✅ Drizzle schema (variants, upcycled fields, curation, addresses, wishlist, M-Pesa columns), idempotent seed, Better Auth email/password + admin RBAC, tRPC (`packages/api`) mounted at `/api/trpc`.
 2. ✅ Chamfered `ProductCard` and the interactive **Hanging Line** (web) with SVG placeholder garments; `/` renders them from seeded data.
-3. Web storefront (wire the tRPC client first; see `packages/api/CLAUDE.md`): **landing completion** (sticky header with nav, search, wishlist and live bag count; Fan Favorites filter pills + Previous/Next; Editorial Lookbook), PLP `/shop/[category]`, PDP `/product/[slug]`, cart drawer, `/checkout` (mock payment), `/account`.
+3. ✅ Web storefront: tRPC client, header (nav, search, wishlist, live bag count), Fan Favorites controls, Lookbook, `/about`, PLP `/shop/[category]` (filters/sort/search), PDP `/product/[slug]`, bag drawer, `/checkout` (reserve → mock M-Pesa), `/account` (orders, wishlist, addresses).
 4. Admin dashboard: inventory CRUD (NEW/UPCYCLED), landing curation (Hanging Line order, Fan Favorites discounts), orders and revenue.
 5. Mobile app: shared types, the tRPC API and auth; touch Hanging Line; 2-column staggered grid; tabs Home/Shop/Upcycled/Bag/Profile.
-6. M-Pesa Daraja STK Push, callback webhook (verify `CheckoutRequestID`, store `MpesaReceiptNumber`, mark Paid, atomic stock decrement / mark sold).
+6. M-Pesa Daraja STK Push replacing `order.mockPay`; callback webhook (plain route handler) verifies `CheckoutRequestID`, stores `MpesaReceiptNumber`, marks the order paid and UPCYCLED items sold. Stock is **already reserved** at `order.create`, so the callback confirms the reservation rather than decrementing. Also add expiry of unpaid reservations (release stock on STK timeout/failure).

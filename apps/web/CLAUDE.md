@@ -7,7 +7,15 @@ Read [../../packages/ui/DESIGN.md](../../packages/ui/DESIGN.md) before building 
 ## Layout
 - `src/app/layout.tsx` loads Cormorant Garamond and Inter with `next/font` (`--font-cormorant`, `--font-inter`).
 - `src/app/api/auth/[...all]/route.ts` is the Better Auth handler and `src/app/api/trpc/[trpc]/route.ts` is the tRPC handler (`@repo/api`). Both also serve the mobile app.
-- Storefront routes: `/` (Hanging Line hero, Fan Favorites, Editorial Lookbook), `/shop/[category]`, `/product/[slug]`, `/checkout`, `/account`.
+- Storefront routes:
+  - `/`: Hanging Line, Fan Favorites, Lookbook.
+  - `/shop/[category]`: `all`, `new`, `upcycled` or a category slug; unknown slugs 404. URL filters are parsed by `src/lib/shop-params.ts`.
+  - `/product/[slug]` and `/about`.
+  - `/checkout` (server-guarded) → `/checkout/confirmation/[orderId]`.
+  - `/account/sign-in` and `/account/sign-up` (validated `?next=` via `safeNextPath`).
+  - `/account`, `/account/wishlist`, `/account/addresses`: the `(member)` group; each page calls `requireSession(path)`.
+- tRPC: `src/components/providers.tsx` (QueryClient + `httpBatchLink` + superjson), `src/lib/trpc.ts` (`useTRPC`), `src/lib/trpc-server.ts` (`publicCaller()` and `sessionCaller()`, server-only). `src/lib/session.ts` provides `getSession` and `requireSession`.
+- Bag: `src/lib/cart.ts` stores `{variantId, quantity}` only (useSyncExternalStore + guarded localStorage + cross-tab sync) plus `bagDrawer`. Prices and stock always come from `cart.validate`.
 - Admin: `src/app/admin/**`. Guard it **on the server** in `admin/layout.tsx` with `auth.api.getSession({ headers: await headers() })` and require `role === "ADMIN"`; otherwise redirect. Never guard admin only on the client.
 
 ## Components
@@ -19,6 +27,8 @@ Read [../../packages/ui/DESIGN.md](../../packages/ui/DESIGN.md) before building 
 - `src/components/garment-art.tsx`: `images[0]` if present, else an SVG silhouette tinted with `swatch(color)`. Real images will need `images.remotePatterns` and `next/image`.
 - `src/lib/showcase.ts`: `toShowcaseItem()` maps tRPC rows to the slim props shape that client components receive.
 - `/` (`src/app/page.tsx`) calls `await connection()` and then `appRouter.createCaller({ session: null })`, so `next build` never touches the database.
+
+- Also: `site-header`, `bag-drawer` (focus trap, Escape, scroll lock, focus return), `shop-filters`, `buy-box` (sticky / pinned phone bar), `checkout-flow`, `address-form` (validates with `AddressSchema`), `address-book`, `wishlist-button`, `fan-favorites`, `lookbook`, `auth-form`.
 
 ## UI spec
 - **Header:** sticky and translucent. Left links: `NEW ARRIVALS`, `UPCYCLED`, `COLLECTIONS`, `ABOUT US` (`text-label uppercase`). Centre: the serif **kushkousins** wordmark. Right: Search, Account, Wishlist and a Bag icon with a live count.

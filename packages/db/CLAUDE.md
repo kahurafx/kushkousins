@@ -31,5 +31,6 @@ pnpm db:studio
 
 ## Rules
 - Money is integer cents with `currency` defaulting to `KES`.
-- **Stock changes are atomic.** Inside one `db.transaction`, run `UPDATE product_variants SET stock = stock - n WHERE id = … AND stock >= n RETURNING …` and treat 0 rows as out of stock. Never read-then-write. When an UPCYCLED variant reaches 0, set `products.status = 'sold'` and `sold_at` in the same transaction.
+- **Stock changes are atomic.** Inside one `db.transaction`, run `UPDATE product_variants SET stock = stock - n WHERE id = … AND stock >= n RETURNING …` and treat 0 rows as out of stock. Never read-then-write. Variants are updated **in id order** to avoid deadlocks between concurrent orders.
+- **Reservation model**: `order.create` decrements stock (reservation) and creates a `pending_payment` order. `order.cancel` and a user's next order release it (`releasePendingOrders` in `packages/api/src/stock.ts`). Payment marks UPCYCLED products `sold` + `sold_at`; until then a 0-stock active product is "Reserved". Never mark sold on reservation.
 - Run `pnpm --filter @repo/db check-types` after schema edits.
