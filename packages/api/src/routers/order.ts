@@ -13,6 +13,8 @@ export const orderRouter = router({
    * so a 1-of-1 can never be sold twice. Any earlier pending order of this user is released first,
    * so one account holds at most one reservation.
    * shortcut: pending orders never expire on their own; add expiry with the Daraja STK timeout (Phase 6).
+   * shortcut: release and reserve lock variants in two passes; two shoppers swapping the same items at the same
+   *   instant can deadlock. Postgres aborts one (a 500, never an oversell). Merge into one id-ordered pass in Phase 6.
    */
   create: protectedProcedure.input(CreateOrderSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.session.user.id;
