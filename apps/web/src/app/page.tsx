@@ -1,12 +1,12 @@
 import { connection } from "next/server";
-import { appRouter } from "@repo/api";
 import { HangingLine } from "@/components/hanging-line";
 import { ProductCard } from "@/components/product-card";
 import { toShowcaseItem } from "@/lib/showcase";
+import { publicCaller } from "@/lib/trpc-server";
 
 export default async function Home() {
   await connection(); // render per request; keeps `next build` from needing a database
-  const trpc = appRouter.createCaller({ session: null }); // public procedures only
+  const trpc = publicCaller();
   const [line, favourites] = await Promise.all([trpc.product.hangingLine(), trpc.product.fanFavorites()]);
 
   return (
