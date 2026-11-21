@@ -56,6 +56,13 @@ export const ProductSchema = z.object({
 });
 export type Product = z.infer<typeof ProductSchema>;
 
+const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL"];
+/** Garment sizes in wearing order (XS < S < M …); unknown sizes sort after, alphabetically. */
+export const compareSizes = (a: string, b: string) => {
+  const [ra, rb] = [SIZE_ORDER.indexOf(a), SIZE_ORDER.indexOf(b)];
+  return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb) || a.localeCompare(b, undefined, { numeric: true });
+};
+
 /** Price after the product's discount, in cents. */
 export const salePriceCents = (p: Pick<Product, "priceCents" | "discountPercent">) =>
   Math.round((p.priceCents * (100 - (p.discountPercent ?? 0))) / 100);

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { hangingLine, partingOffset, spring } from "@repo/ui";
-import type { ShowcaseItem } from "@/lib/showcase";
+import { availabilityLabel, type ShowcaseItem } from "@/lib/showcase";
 import { GarmentArt } from "./garment-art";
 import { Price } from "./price";
 
@@ -97,7 +97,7 @@ export function HangingLine({ items }: { items: ShowcaseItem[] }) {
                       >
                         <p className="text-label uppercase">
                           <span className={item.mode === "UPCYCLED" ? "bg-tangerine px-1.5 py-0.5 text-forest" : ""}>
-                            {item.sold ? "Sold" : item.mode === "UPCYCLED" ? "One-of-a-kind" : "New"}
+                            {availabilityLabel(item) ?? (item.mode === "UPCYCLED" ? "One-of-a-kind" : "New")}
                           </span>
                         </p>
                         <h3 className="mt-3 text-display-sm">{item.name}</h3>

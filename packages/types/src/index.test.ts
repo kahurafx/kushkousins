@@ -31,3 +31,9 @@ test("shippingCents: flat fee, free from KES 10,000, none for empty bag", () => 
   assert.equal(shippingCents(999999), 40000);
   assert.equal(shippingCents(1000000), 0);
 });
+
+import { compareSizes } from "./index.ts";
+
+test("compareSizes orders garment sizes, unknowns last", () => {
+  assert.deepEqual(["L", "XS", "M", "One", "XL", "S", "32", "28"].sort(compareSizes), ["XS", "S", "M", "L", "XL", "28", "32", "One"]);
+});

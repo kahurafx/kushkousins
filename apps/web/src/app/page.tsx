@@ -11,8 +11,7 @@ export default async function Home() {
 
   return (
     <main className="flex flex-1 flex-col">
-      {/* shortcut: wordmark only; the full sticky header (nav, search, bag count) lands in Phase 3 */}
-      <h1 className="pt-10 text-center font-display text-display-md">kushkousins</h1>
+      <h1 className="sr-only">kushkousins: new and one-of-a-kind upcycled clothing</h1>
 
       <div className="mt-10 min-w-0">
         <HangingLine items={line.map(toShowcaseItem)} />

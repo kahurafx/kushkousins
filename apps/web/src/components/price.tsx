@@ -1,7 +1,7 @@
 import { formatKES } from "@repo/ui";
 import type { ShowcaseItem } from "@/lib/showcase";
 
-export function Price({ item, className = "" }: { item: ShowcaseItem; className?: string }) {
+export function Price({ item, className = "" }: { item: Pick<ShowcaseItem, "priceCents" | "salePriceCents">; className?: string }) {
   const discounted = item.salePriceCents < item.priceCents;
   return (
     <p className={`text-price tabular-nums ${className}`}>

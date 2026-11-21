@@ -2,7 +2,15 @@ import { colors, hangerPath, hangerViewBox, silhouettes, silhouetteViewBox, swat
 import type { ShowcaseItem } from "@/lib/showcase";
 
 /** Product art. shortcut: SVG silhouette placeholder until real cut-out photos exist (item.image). */
-export function GarmentArt({ item, hanger = false, className }: { item: ShowcaseItem; hanger?: boolean; className?: string }) {
+export function GarmentArt({
+  item,
+  hanger = false,
+  className,
+}: {
+  item: Pick<ShowcaseItem, "silhouette" | "color" | "image">;
+  hanger?: boolean;
+  className?: string;
+}) {
   if (item.image) {
     // eslint-disable-next-line @next/next/no-img-element -- swap to next/image + remotePatterns once image hosting is chosen
     return <img src={item.image} alt="" aria-hidden className={className} />;

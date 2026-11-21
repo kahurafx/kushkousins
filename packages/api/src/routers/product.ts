@@ -1,44 +1,96 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { and, asc, db, desc, eq, isNotNull, ne, schema } from "@repo/db";
-import { InventoryModeSchema } from "@repo/types";
+import { and, asc, db, desc, eq, exists, ilike, inArray, isNotNull, ne, schema, sql } from "@repo/db";
+import { compareSizes, InventoryModeSchema } from "@repo/types";
 import { publicProcedure, router } from "../trpc";
 
-const { products, categories } = schema;
+const { products, categories, productVariants } = schema;
+
+// Must match salePriceCents() in @repo/types: round half up on positive numbers.
+const salePriceSql = sql<number>`round(${products.priceCents} * (100 - coalesce(${products.discountPercent}, 0)) / 100.0)::int`;
+
+export const ProductListInput = z.object({
+  mode: InventoryModeSchema.optional(),
+  categorySlug: z.string().optional(),
+  q: z.string().trim().max(80).optional(),
+  sizes: z.array(z.string().max(20)).max(20).optional(),
+  colors: z.array(z.string().max(40)).max(20).optional(),
+  minPriceCents: z.number().int().nonnegative().optional(),
+  maxPriceCents: z.number().int().nonnegative().optional(),
+  sort: z.enum(["newest", "price_asc", "price_desc"]).default("newest"),
+  limit: z.number().int().min(1).max(100).default(48),
+  offset: z.number().int().min(0).default(0),
+});
+
+const listed = ne(products.status, "archived"); // Sold 1-of-1s stay listed (DESIGN.md: visible SOLD state).
 
 export const productRouter = router({
-  // Sold 1-of-1s stay listed (DESIGN.md: visible SOLD state); archived never shows.
-  list: publicProcedure
-    .input(
-      z.object({
-        mode: InventoryModeSchema.optional(),
-        categorySlug: z.string().optional(),
-        limit: z.number().int().min(1).max(100).default(24),
-        offset: z.number().int().min(0).default(0),
-      }),
-    )
-    .query(async ({ input }) => {
-      const category = input.categorySlug
-        ? await db.query.categories.findFirst({ where: eq(categories.slug, input.categorySlug) })
-        : undefined;
-      if (input.categorySlug && !category) return [];
-      return db.query.products.findMany({
-        where: and(
-          ne(products.status, "archived"),
-          input.mode ? eq(products.mode, input.mode) : undefined,
-          category ? eq(products.categoryId, category.id) : undefined,
-        ),
-        with: { variants: true, category: true },
-        orderBy: [desc(products.createdAt)],
-        limit: input.limit,
-        offset: input.offset,
-      });
-    }),
+  list: publicProcedure.input(ProductListInput).query(async ({ input }) => {
+    const category = input.categorySlug
+      ? await db.query.categories.findFirst({ where: eq(categories.slug, input.categorySlug) })
+      : undefined;
+    if (input.categorySlug && !category) return [];
 
-  bySlug: publicProcedure.input(z.object({ slug: z.string() })).query(async ({ input }) => {
-    const product = await db.query.products.findFirst({
-      where: and(eq(products.slug, input.slug), ne(products.status, "archived")),
+    const variantMatch = (col: typeof productVariants.size | typeof productVariants.color, values?: string[]) =>
+      values?.length
+        ? exists(
+            db
+              .select({ one: sql`1` })
+              .from(productVariants)
+              .where(and(eq(productVariants.productId, products.id), inArray(col, values))),
+          )
+        : undefined;
+
+    const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
+    return db.query.products.findMany({
+      where: and(
+        listed,
+        input.mode ? eq(products.mode, input.mode) : undefined,
+        category ? eq(products.categoryId, category.id) : undefined,
+        input.q ? ilike(products.name, `%${escapeLike(input.q)}%`) : undefined,
+        variantMatch(productVariants.size, input.sizes),
+        variantMatch(productVariants.color, input.colors),
+        input.minPriceCents !== undefined ? sql`${salePriceSql} >= ${input.minPriceCents}` : undefined,
+        input.maxPriceCents !== undefined ? sql`${salePriceSql} <= ${input.maxPriceCents}` : undefined,
+      ),
       with: { variants: true, category: true },
+      orderBy:
+        input.sort === "price_asc"
+          ? [asc(salePriceSql), asc(products.name)]
+          : input.sort === "price_desc"
+            ? [desc(salePriceSql), asc(products.name)]
+            : [desc(products.createdAt), asc(products.name)],
+      limit: input.limit,
+      offset: input.offset,
+    });
+  }),
+
+  /** Filter options: every size/colour on a listed product, plus categories and the sale-price range. */
+  facets: publicProcedure.query(async () => {
+    const [variants, cats, [range]] = await Promise.all([
+      db
+        .selectDistinct({ size: productVariants.size, color: productVariants.color })
+        .from(productVariants)
+        .innerJoin(products, eq(products.id, productVariants.productId))
+        .where(listed),
+      db.select().from(categories).orderBy(asc(categories.name)),
+      db
+        .select({ min: sql<number>`coalesce(min(${salePriceSql}), 0)::int`, max: sql<number>`coalesce(max(${salePriceSql}), 0)::int` })
+        .from(products)
+        .where(listed),
+    ]);
+    return {
+      sizes: [...new Set(variants.map((v) => v.size))].sort(compareSizes),
+      colors: [...new Set(variants.map((v) => v.color))].sort(),
+      categories: cats,
+      priceRange: range!,
+    };
+  }),
+
+  bySlug: publicProcedure.input(z.object({ slug: z.string().max(200) })).query(async ({ input }) => {
+    const product = await db.query.products.findFirst({
+      where: and(eq(products.slug, input.slug), listed),
+      with: { variants: { orderBy: [asc(productVariants.size), asc(productVariants.color)] }, category: true },
     });
     if (!product) throw new TRPCError({ code: "NOT_FOUND" });
     return product;
@@ -46,7 +98,7 @@ export const productRouter = router({
 
   hangingLine: publicProcedure.query(() =>
     db.query.products.findMany({
-      where: and(ne(products.status, "archived"), isNotNull(products.hangingLinePosition)),
+      where: and(listed, isNotNull(products.hangingLinePosition)),
       with: { variants: true },
       orderBy: [asc(products.hangingLinePosition)],
     }),
@@ -54,7 +106,7 @@ export const productRouter = router({
 
   fanFavorites: publicProcedure.query(() =>
     db.query.products.findMany({
-      where: and(ne(products.status, "archived"), isNotNull(products.fanFavoritePosition)),
+      where: and(listed, isNotNull(products.fanFavoritePosition)),
       with: { variants: true, category: true },
       orderBy: [asc(products.fanFavoritePosition)],
     }),
