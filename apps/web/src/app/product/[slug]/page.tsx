@@ -6,6 +6,7 @@ import { TRPCError } from "@trpc/server";
 import { BuyBox } from "@/components/buy-box";
 import { GarmentArt } from "@/components/garment-art";
 import { Price } from "@/components/price";
+import { WishlistButton } from "@/components/wishlist-button";
 import { availabilityLabel, toShowcaseItem } from "@/lib/showcase";
 import { publicCaller } from "@/lib/trpc-server";
 
@@ -86,6 +87,9 @@ export default async function ProductPage({ params }: Props) {
           )}
 
           <BuyBox item={item} />
+          <div className="mt-6">
+            <WishlistButton productId={product.id} name={product.name} />
+          </div>
         </section>
       </div>
     </main>

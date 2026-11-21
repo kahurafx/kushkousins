@@ -4,6 +4,7 @@ import { adminRouter } from "./routers/admin";
 import { cartRouter } from "./routers/cart";
 import { orderRouter } from "./routers/order";
 import { productRouter } from "./routers/product";
+import { wishlistRouter } from "./routers/wishlist";
 import { router } from "./trpc";
 
 export const appRouter = router({
@@ -11,6 +12,7 @@ export const appRouter = router({
   cart: cartRouter,
   order: orderRouter,
   address: addressRouter,
+  wishlist: wishlistRouter,
   admin: adminRouter,
 });
 

@@ -55,12 +55,20 @@ export const addressRouter = router({
     }),
   ),
 
-  remove: protectedProcedure.input(Id).mutation(async ({ ctx, input }) => {
-    const [row] = await db
-      .delete(addresses)
-      .where(and(eq(addresses.id, input.id), eq(addresses.userId, ctx.session.user.id)))
-      .returning({ id: addresses.id });
-    if (!row) throw new TRPCError({ code: "NOT_FOUND" });
-    return row;
-  }),
+  /** Removing the default promotes the newest remaining address, so checkout always has one. */
+  remove: protectedProcedure.input(Id).mutation(({ ctx, input }) =>
+    db.transaction(async (tx) => {
+      const userId = ctx.session.user.id;
+      const [row] = await tx
+        .delete(addresses)
+        .where(and(eq(addresses.id, input.id), eq(addresses.userId, userId)))
+        .returning({ id: addresses.id, isDefault: addresses.isDefault });
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+      if (row.isDefault) {
+        const next = await tx.query.addresses.findFirst({ where: eq(addresses.userId, userId), orderBy: [desc(addresses.createdAt)] });
+        if (next) await tx.update(addresses).set({ isDefault: true }).where(eq(addresses.id, next.id));
+      }
+      return { id: row.id };
+    }),
+  ),
 });
