@@ -38,7 +38,7 @@ export default function Bag() {
             {q.data.lines.map((l) => (
               <View key={l.variantId} className="flex-row gap-4 border-b border-forest/10 py-5">
                 <View className="h-28 w-20 items-center justify-center bg-stone">
-                  {l.item && <GarmentArt item={{ silhouette: silhouetteFor(l.item.name), color: l.item.color }} width={56} />}
+                  {l.item && <GarmentArt item={{ silhouette: silhouetteFor(l.item.name), color: l.item.color, image: l.item.image }} width={56} />}
                 </View>
                 <View className="flex-1">
                   <Text className="font-display text-display-sm text-forest">{l.item?.name ?? "Unavailable item"}</Text>

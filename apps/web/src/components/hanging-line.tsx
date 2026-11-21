@@ -10,6 +10,19 @@ import { Price } from "./price";
 
 const transition = { type: "spring", ...spring.default } as const;
 
+/** Wall-mounted metal rail: a lit cylinder (sheen on top, rim light below) between two brackets. */
+function Rail() {
+  const bracket =
+    "absolute -top-2.5 h-[26px] w-[7px] rounded-[2px] bg-[linear-gradient(to_right,var(--color-graphite),color-mix(in_srgb,var(--color-steel)_55%,var(--color-graphite))_45%,var(--color-graphite))] shadow-[2px_6px_8px_-3px_rgb(28_43_33/0.4)]";
+  return (
+    <li aria-hidden className="pointer-events-none absolute inset-x-3 top-10 z-10 md:inset-x-8">
+      <div className="h-[6px] rounded-full bg-[linear-gradient(to_bottom,var(--color-steel)_0%,var(--color-graphite)_38%,var(--color-graphite)_78%,color-mix(in_srgb,var(--color-steel)_45%,var(--color-graphite))_100%)] shadow-[0_9px_10px_-6px_rgb(28_43_33/0.45)]" />
+      <div className={`${bracket} left-0`} />
+      <div className={`${bracket} right-0`} />
+    </li>
+  );
+}
+
 /**
  * The Hanging Line hero. Each <li> slot keeps a fixed layout box (hover target never moves);
  * only its inner layer animates, so a neighbour sliding under the cursor can't steal hover.
@@ -44,14 +57,14 @@ export function HangingLine({ items }: { items: ShowcaseItem[] }) {
       >
         {/* pt/pb reserve room for the scale-up and the card overhang: overflow-x clips the y axis too */}
         <ul className="relative mx-auto flex w-max gap-4 px-8 pt-10 pb-32 sm:gap-6 md:px-16">
-          <li aria-hidden className="pointer-events-none absolute inset-x-0 top-10 h-px bg-forest/70" />
+          <Rail />
           {items.map((item, i) => {
             const isActive = active === i;
             return (
               <li
                 key={item.id}
+                // No z-index here: the rail (z-10) must pass in front of every hook, cards (z-20) over it.
                 className="relative w-32 shrink-0 sm:w-36 lg:w-40"
-                style={{ zIndex: isActive ? 20 : 1 }}
                 onPointerEnter={(e) => e.pointerType === "mouse" && setActive(i)}
                 onFocus={() => setActive(i)}
               >
@@ -71,9 +84,14 @@ export function HangingLine({ items }: { items: ShowcaseItem[] }) {
                     aria-label={`${item.name}, ${item.mode === "UPCYCLED" ? "one of a kind" : "new"}`}
                     // Click selects (never toggles): a tap fires pointerenter→click, toggling would close it.
                     onClick={() => setActive(i)}
-                    className="block w-full -translate-y-[0.6rem] cursor-pointer outline-offset-4 outline-forest focus-visible:outline-2"
+                    // Photos are cropped with the hook tip at the top edge: lift it so the hook rests on the rod.
+                    className="block w-full -translate-y-0.5 cursor-pointer outline-offset-4 outline-forest focus-visible:outline-2"
                   >
-                    <GarmentArt item={item} hanger className="h-auto w-full" />
+                    <GarmentArt
+                      item={item}
+                      hanger
+                      className="h-auto w-full drop-shadow-[0_18px_16px_rgb(28_43_33/0.16)]"
+                    />
                   </button>
                 </motion.div>
 
@@ -82,7 +100,7 @@ export function HangingLine({ items }: { items: ShowcaseItem[] }) {
                   {isActive && (
                     <div
                       // Edge cards align inward so they're never clipped by the rack's scroll edge.
-                      className={`absolute inset-x-0 top-[72%] flex ${
+                      className={`absolute inset-x-0 top-[72%] z-20 flex ${
                         i === 0 ? "justify-start" : i === items.length - 1 ? "justify-end" : "justify-center"
                       }`}
                     >

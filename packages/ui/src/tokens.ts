@@ -7,6 +7,8 @@ export const colors = {
   espresso: "#38251A", // Rich Espresso: secondary accent / earth tone
   tangerine: "#EE7218", // Burnt Tangerine: editorial badges, highlights (never small text on canvas)
   stone: "#E8E6E1", // Soft Stone: product card backdrop
+  graphite: "#262624", // Hanging Line rail: rod body and brackets
+  steel: "#A6A6A0", // Hanging Line rail: specular sheen along the rod
 } as const;
 export type ColorToken = keyof typeof colors;
 

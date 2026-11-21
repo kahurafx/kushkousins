@@ -5,6 +5,8 @@
   --color-espresso: #38251A;
   --color-tangerine: #EE7218;
   --color-stone: #E8E6E1;
+  --color-graphite: #262624;
+  --color-steel: #A6A6A0;
 
   /* next/font sets --font-cormorant / --font-inter on <html>; fall back to the family names */
   --font-display: var(--font-cormorant), "Cormorant Garamond", ui-serif, Georgia, serif;

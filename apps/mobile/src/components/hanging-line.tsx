@@ -31,6 +31,36 @@ function Garment({ item, index, slot, offset, reduce }: { item: ShowcaseItem; in
   );
 }
 
+/** Metal rail drawn over the hooks (photos put the hook tip at their top edge, 2px above the rod). */
+function Rail() {
+  const bracket = { position: "absolute", top: -8, width: 7, height: 26, borderRadius: 2, backgroundColor: colors.graphite } as const;
+  return (
+    <View pointerEvents="none" style={{ position: "absolute", left: 12, right: 12, top: 2 }}>
+      <View
+        style={{
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: colors.graphite,
+          overflow: "hidden",
+          shadowColor: colors.forest,
+          shadowOpacity: 0.35,
+          shadowRadius: 4,
+          shadowOffset: { width: 0, height: 4 },
+        }}
+      >
+        <View style={{ height: 1.5, backgroundColor: colors.steel, opacity: 0.9 }} />
+        <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, backgroundColor: colors.steel, opacity: 0.35 }} />
+      </View>
+      <View style={[bracket, { left: 0 }]}>
+        <View style={{ position: "absolute", top: 0, bottom: 0, left: 2.5, width: 1.5, backgroundColor: colors.steel, opacity: 0.5 }} />
+      </View>
+      <View style={[bracket, { right: 0 }]}>
+        <View style={{ position: "absolute", top: 0, bottom: 0, left: 2.5, width: 1.5, backgroundColor: colors.steel, opacity: 0.5 }} />
+      </View>
+    </View>
+  );
+}
+
 /**
  * Touch Hanging Line. Native snapping scroll gives platform momentum + iOS edge bounce; the centred
  * garment scales up and its card appears; a light haptic marks each new snap (not every frame).
@@ -62,7 +92,6 @@ export function HangingLine({ items }: { items: ShowcaseItem[] }) {
   if (!items.length) return null;
   return (
     <View accessibilityLabel="The Hanging Line">
-      <View style={{ position: "absolute", left: 0, right: 0, top: 6, height: 1, backgroundColor: colors.forest, opacity: 0.7 }} />
       <Animated.ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -76,6 +105,7 @@ export function HangingLine({ items }: { items: ShowcaseItem[] }) {
           <Garment key={it.id} item={it} index={i} slot={slot} offset={offset} reduce={reduce} />
         ))}
       </Animated.ScrollView>
+      <Rail />
       {item && (
         <Pressable onPress={() => router.push(`/product/${item.slug}`)} accessibilityRole="link" className="mx-auto mt-2 w-64 items-center bg-canvas px-5 py-4" accessibilityLiveRegion="polite">
           <Text className={`px-1.5 py-0.5 font-sans-medium text-label uppercase ${item.mode === "UPCYCLED" ? "bg-tangerine text-forest" : "text-forest"}`}>
