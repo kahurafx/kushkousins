@@ -80,7 +80,12 @@ export function HangingLine({ items }: { items: ShowcaseItem[] }) {
                 {/* Card floats over the garment's hem, anchored to its slot */}
                 <AnimatePresence>
                   {isActive && (
-                    <div className="absolute inset-x-[-3rem] top-[72%] flex justify-center">
+                    <div
+                      // Edge cards align inward so they're never clipped by the rack's scroll edge.
+                      className={`absolute inset-x-0 top-[72%] flex ${
+                        i === 0 ? "justify-start" : i === items.length - 1 ? "justify-end" : "justify-center"
+                      }`}
+                    >
                       <motion.div
                         id={`hl-card-${item.id}`}
                         initial={{ opacity: 0, y: reduce ? 0 : -8 }}
@@ -88,7 +93,7 @@ export function HangingLine({ items }: { items: ShowcaseItem[] }) {
                         exit={{ opacity: 0, y: reduce ? 0 : -8 }}
                         transition={reduce ? { duration: 0.15 } : transition}
                         style={{ transformOrigin: "50% 0%" }}
-                        className="w-60 bg-canvas/90 p-5 shadow-[0_12px_40px_-12px_rgb(28_43_33/0.35)] backdrop-blur-md chamfer-sm"
+                        className="w-60 shrink-0 bg-canvas/90 p-5 shadow-[0_12px_40px_-12px_rgb(28_43_33/0.35)] backdrop-blur-md chamfer-sm"
                       >
                         <p className="text-label uppercase">
                           <span className={item.mode === "UPCYCLED" ? "bg-tangerine px-1.5 py-0.5 text-forest" : ""}>
