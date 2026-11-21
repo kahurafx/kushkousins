@@ -1,1 +1,12 @@
-{ "extends": "@repo/typescript-config/base.json", "include": ["src"] }
+{
+  "extends": "@repo/typescript-config/base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "src"
+  ]
+}

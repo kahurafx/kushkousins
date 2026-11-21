@@ -10,8 +10,10 @@
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",
     "db:studio": "turbo run db:studio",
-    "auth:generate": "pnpm --filter @repo/db auth:generate",
-    "test": "turbo run test"
+    "auth:generate": "pnpm --filter @repo/auth auth:generate",
+    "test": "turbo run test",
+    "db:seed": "pnpm --filter @repo/db db:seed",
+    "promote-admin": "pnpm --filter @repo/db promote-admin"
   },
   "devDependencies": {
     "turbo": "^2.11.13"

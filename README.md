@@ -4,8 +4,9 @@ Turborepo (pnpm) monorepo.
 
 | Path | What |
 |---|---|
-| `apps/web` | Next.js 16 (App Router, Tailwind 4); hosts the Better Auth route at `/api/auth/*` |
+| `apps/web` | Next.js 16 (App Router, Tailwind 4); hosts `/api/auth/*` (Better Auth) and `/api/trpc/*` (tRPC) |
 | `apps/mobile` | Expo 58 / React Native (expo-router), auth via `@better-auth/expo` |
+| `packages/api` | tRPC v11 router shared by web and mobile (public / protected / admin procedures) |
 | `packages/db` | Drizzle ORM + Postgres schema (auth + shop tables), migrations in `drizzle/` |
 | `packages/auth` | Better Auth server config (`/server`) and web client (`/client`) |
 | `packages/types` | Shared zod schemas and TS types |
@@ -15,12 +16,15 @@ Turborepo (pnpm) monorepo.
 ## Setup
 ```bash
 pnpm install
-docker compose up -d                         # Postgres on :5432
+docker compose up -d                         # Postgres on :54329
 cp .env.example apps/web/.env.local          # add NEXT_PUBLIC_APP_URL=http://localhost:3000
 cp .env.example packages/db/.env
 cp apps/mobile/.env.example apps/mobile/.env # use your LAN IP for a physical device
-pnpm --filter @repo/db db:migrate
+pnpm db:migrate
+pnpm db:seed                                 # sample New + Upcycled catalogue (KES)
 pnpm dev
+# sign up at the app, then:
+pnpm promote-admin you@example.com           # grant ADMIN
 ```
 
 ## Notes

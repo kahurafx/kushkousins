@@ -17,7 +17,9 @@
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "@repo/ui": "workspace:*"
+    "@repo/ui": "workspace:*",
+    "@repo/api": "workspace:*",
+    "@trpc/server": "^11.29.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",

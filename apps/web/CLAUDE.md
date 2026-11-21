@@ -6,7 +6,7 @@ Read [../../packages/ui/DESIGN.md](../../packages/ui/DESIGN.md) before building 
 
 ## Layout
 - `src/app/layout.tsx` loads Cormorant Garamond and Inter with `next/font` (`--font-cormorant`, `--font-inter`).
-- `src/app/api/auth/[...all]/route.ts` is the Better Auth handler. It also serves the mobile app.
+- `src/app/api/auth/[...all]/route.ts` is the Better Auth handler and `src/app/api/trpc/[trpc]/route.ts` is the tRPC handler (`@repo/api`). Both also serve the mobile app.
 - Storefront routes: `/` (Hanging Line hero, Fan Favorites, Editorial Lookbook), `/shop/[category]`, `/product/[slug]`, `/checkout`, `/account`.
 - Admin: `src/app/admin/**`. Guard it **on the server** in `admin/layout.tsx` with `auth.api.getSession({ headers: await headers() })` and require `role === "ADMIN"`; otherwise redirect. Never guard admin only on the client.
 
@@ -20,7 +20,7 @@ Read [../../packages/ui/DESIGN.md](../../packages/ui/DESIGN.md) before building 
 ## Rules
 - Use Server Components by default and add `"use client"` only for interaction (motion, drawer, forms).
 - Use `motion` / Framer Motion springs with `spring.default` from `@repo/ui`; use `spring.flick` only after momentum. Respect `useReducedMotion()`.
-- Mutations go through Server Actions or route handlers that parse input with `@repo/types` zod schemas.
-- Access the DB only on the server via `@repo/db`. Never import `@repo/db` or `@repo/auth/server` into client components.
+- **Data goes through tRPC** (`@repo/api`). Client Components use `@trpc/tanstack-react-query` hooks (wired in Phase 3; see `packages/api/CLAUDE.md`), and Server Components use `appRouter.createCaller(...)`. Do not add Server Actions or ad-hoc route handlers for app data. The only exceptions are `/api/auth/*` and the Phase 6 M-Pesa callback.
+- Never import `@repo/db`, `@repo/auth/server` or a value from `@repo/api` into client components (use `import type { AppRouter }` only).
 - Env vars are documented in `.env.example` (never read `.env.local`).
 - Before you call a task done, run `pnpm --filter @repo/web check-types` and `pnpm exec next build`.

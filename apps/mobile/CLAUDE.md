@@ -19,5 +19,5 @@ A native translation of the storefront, not a webview. Read [../../packages/ui/D
 
 ## Rules
 - Install with `pnpm exec expo install <pkg>`, never a plain `pnpm add`, so versions match the SDK.
-- Mobile talks to the web app's API only. It never imports `@repo/db` or `@repo/auth/server`.
+- Mobile talks to the web app only through tRPC (`${EXPO_PUBLIC_API_URL}/api/trpc`, cookie header from `authClient.getCookie()`; see `packages/api/CLAUDE.md`) and Better Auth. It imports `type { AppRouter }` from `@repo/api` only, never `@repo/db` or `@repo/auth/server`.
 - Before you call a task done, run `pnpm --filter @repo/mobile check-types` and `pnpm exec expo lint`.

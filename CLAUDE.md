@@ -19,8 +19,9 @@ The full product brief is [docs/BRIEF.md](docs/BRIEF.md). **Read it before start
 ## Architecture (Turborepo + pnpm)
 | Path | Package | What |
 |---|---|---|
-| `apps/web` | `@repo/web` | Next.js 16 App Router, Tailwind 4, Framer Motion: storefront and `/admin` portal. Hosts the Better Auth API. |
+| `apps/web` | `@repo/web` | Next.js 16 App Router, Tailwind 4, Framer Motion: storefront and `/admin` portal. Hosts `/api/auth/*` (Better Auth) and `/api/trpc/*` (tRPC). |
 | `apps/mobile` | `@repo/mobile` | Expo 58 + Expo Router, NativeWind, Reanimated: native iOS and Android app. |
+| `packages/api` | `@repo/api` | **tRPC v11 router shared by web and mobile**: context (Better Auth session), `public`/`protected`/`admin` procedures. |
 | `packages/db` | `@repo/db` | Postgres + Drizzle ORM schema, client and migrations (the brief's "database" package). |
 | `packages/auth` | `@repo/auth` | Better Auth: email/password, RBAC `CUSTOMER` \| `ADMIN`, Expo plugin. |
 | `packages/types` | `@repo/types` | Shared zod schemas and TS types (the API contract). |
@@ -31,26 +32,30 @@ Internal packages are **source-only TypeScript** (`exports` point at `src/*.ts`)
 
 ## Conventions
 - **Money is stored as integer cents** (`priceCents`, `totalCents`) and displayed with `formatKES` from `@repo/ui`.
-- Inventory has two modes: **NEW** (size/colour variants, multi-unit stock) and **UPCYCLED** (stock = 1, auto-marked sold on paid checkout). Stock changes must be atomic in a single DB transaction.
-- Order pipeline: `Pending Payment → Paid → Processing → Shipped → Delivered` (plus `Cancelled`).
-- Validate every request body at the API boundary with `@repo/types` zod schemas.
+- **All app data goes through tRPC** (`packages/api`), with `.input()` built from `@repo/types` zod schemas, so web and mobile share one API. There are only two non-tRPC endpoints: `/api/auth/*` (Better Auth) and the Phase 6 M-Pesa callback (a plain route handler, because Safaricom POSTs raw JSON).
+- Clients use `import type { AppRouter } from "@repo/api"` only. A value import would bundle `db`/`pg` into the browser or app.
+- **Authorization is enforced in tRPC procedures** (`adminProcedure`, `protectedProcedure`), never only in the UI.
+- Inventory has two modes: **NEW** (size/colour variants, multi-unit stock) and **UPCYCLED** (one variant, stock 1, product status → `sold` on paid checkout). **Stock lives only on `product_variants`** and changes atomically in one DB transaction.
+- Order pipeline: `pending_payment → paid → processing → shipped → delivered` (plus `cancelled`).
 
 ## Commands
 ```bash
 pnpm dev                 # all apps
 pnpm build | pnpm check-types | pnpm lint | pnpm test
-docker compose up -d     # Postgres 17 on :5432
+docker compose up -d     # Postgres 17 on :54329
 pnpm db:generate         # drizzle migration from schema changes
 pnpm db:migrate
 pnpm db:studio
+pnpm db:seed             # idempotent sample catalogue (New + Upcycled, KES)
+pnpm promote-admin <email>  # make an existing (signed-up) user ADMIN
 pnpm auth:generate       # regenerate Better Auth tables after adding plugins
 ```
 
 ## Phases (status)
 0. ✅ Scaffold the monorepo, Claude setup and design tokens (`packages/ui`).
-1. ⏳ Drizzle schema (variants, upcycled fields, curation, addresses, wishlist), seed script (New + Upcycled products in KES), Better Auth email/password + admin RBAC.
+1. ✅ Drizzle schema (variants, upcycled fields, curation, addresses, wishlist, M-Pesa columns), idempotent seed, Better Auth email/password + admin RBAC, tRPC (`packages/api`) mounted at `/api/trpc`.
 2. Design system components: chamfered card and the interactive **Hanging Line** (web).
-3. Web storefront: PLP `/shop/[category]`, PDP `/product/[slug]`, cart drawer, `/checkout` (mock payment), `/account`.
+3. Web storefront (wire the tRPC client first; see `packages/api/CLAUDE.md`): PLP `/shop/[category]`, PDP `/product/[slug]`, cart drawer, `/checkout` (mock payment), `/account`.
 4. Admin dashboard: inventory CRUD (NEW/UPCYCLED), landing curation (Hanging Line order, Fan Favorites discounts), orders and revenue.
-5. Mobile app: shared types, API and auth; touch Hanging Line; 2-column staggered grid; tabs Home/Shop/Upcycled/Bag/Profile.
+5. Mobile app: shared types, the tRPC API and auth; touch Hanging Line; 2-column staggered grid; tabs Home/Shop/Upcycled/Bag/Profile.
 6. M-Pesa Daraja STK Push, callback webhook (verify `CheckoutRequestID`, store `MpesaReceiptNumber`, mark Paid, atomic stock decrement / mark sold).

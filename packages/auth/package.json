@@ -4,9 +4,13 @@
   "private": true,
   "exports": {
     "./server": "./src/server.ts",
-    "./client": "./src/client.ts"
+    "./client": "./src/client.ts",
+    "./permissions": "./src/permissions.ts"
   },
-  "scripts": { "check-types": "tsc --noEmit" },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "auth:generate": "auth generate --config src/server.ts --output ../db/src/schema/auth.ts -y"
+  },
   "dependencies": {
     "@better-auth/expo": "^1.7.27",
     "@repo/db": "workspace:*",
@@ -15,6 +19,7 @@
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22",
+    "auth": "1.7.27",
     "typescript": "^5.9.0"
   }
 }
