@@ -5,11 +5,13 @@
   "exports": {
     "./server": "./src/server.ts",
     "./client": "./src/client.ts",
-    "./permissions": "./src/permissions.ts"
+    "./permissions": "./src/permissions.ts",
+    "./redirect": "./src/redirect.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit",
-    "auth:generate": "auth generate --config src/server.ts --output ../db/src/schema/auth.ts -y"
+    "auth:generate": "auth generate --config src/server.ts --output ../db/src/schema/auth.ts -y",
+    "test": "node --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@better-auth/expo": "^1.7.27",

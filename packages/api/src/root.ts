@@ -1,4 +1,5 @@
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
+import { addressRouter } from "./routers/address";
 import { adminRouter } from "./routers/admin";
 import { cartRouter } from "./routers/cart";
 import { orderRouter } from "./routers/order";
@@ -9,6 +10,7 @@ export const appRouter = router({
   product: productRouter,
   cart: cartRouter,
   order: orderRouter,
+  address: addressRouter,
   admin: adminRouter,
 });
 
