@@ -1,17 +1,35 @@
-import { formatKES } from "@repo/ui";
+import { connection } from "next/server";
+import { appRouter } from "@repo/api";
+import { HangingLine } from "@/components/hanging-line";
+import { ProductCard } from "@/components/product-card";
+import { toShowcaseItem } from "@/lib/showcase";
 
-// shortcut: token preview only; replaced by the real landing page in Phase 2.
-export default function Home() {
+export default async function Home() {
+  await connection(); // render per request; keeps `next build` from needing a database
+  const trpc = appRouter.createCaller({ session: null }); // public procedures only
+  const [line, favourites] = await Promise.all([trpc.product.hangingLine(), trpc.product.fanFavorites()]);
+
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-12 px-6 py-24">
-      <h1 className="font-display text-display-xl">kushkousins</h1>
-      <p className="text-label uppercase">New · One-of-a-kind upcycled</p>
-      <div className="flex gap-6">
-        <div className="relative h-80 w-60 bg-stone chamfer-md">
-          <span className="absolute left-5 top-5 bg-tangerine px-2 py-1 text-label uppercase text-forest">Upcycled</span>
-          <p className="absolute bottom-6 left-5 text-price tabular-nums">{formatKES(1250000)}</p>
-        </div>
+    <main className="flex flex-1 flex-col">
+      {/* shortcut: wordmark only; the full sticky header (nav, search, bag count) lands in Phase 3 */}
+      <h1 className="pt-10 text-center font-display text-display-md">kushkousins</h1>
+
+      <div className="mt-10 min-w-0">
+        <HangingLine items={line.map(toShowcaseItem)} />
       </div>
+
+      {/* shortcut: plain row of cards; filter pills + Previous/Next controls land in Phase 3 */}
+      <section aria-labelledby="fan-favorites" className="mx-auto w-full max-w-7xl px-6 pb-24 md:px-16">
+        <h2 id="fan-favorites" className="text-display-lg">Fan Favorites</h2>
+        <ul className="mt-10 grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-3 lg:grid-cols-5">
+          {favourites.map((p) => (
+            <li key={p.id}>
+              {/* shortcut: "featured" = top favourite until a curation flag exists (Phase 4) */}
+              <ProductCard item={toShowcaseItem(p)} featured={p.fanFavoritePosition === 1} />
+            </li>
+          ))}
+        </ul>
+      </section>
     </main>
   );
 }

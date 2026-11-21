@@ -54,8 +54,8 @@ pnpm auth:generate       # regenerate Better Auth tables after adding plugins
 ## Phases (status)
 0. ✅ Scaffold the monorepo, Claude setup and design tokens (`packages/ui`).
 1. ✅ Drizzle schema (variants, upcycled fields, curation, addresses, wishlist, M-Pesa columns), idempotent seed, Better Auth email/password + admin RBAC, tRPC (`packages/api`) mounted at `/api/trpc`.
-2. Design system components: chamfered card and the interactive **Hanging Line** (web).
-3. Web storefront (wire the tRPC client first; see `packages/api/CLAUDE.md`): PLP `/shop/[category]`, PDP `/product/[slug]`, cart drawer, `/checkout` (mock payment), `/account`.
+2. ✅ Chamfered `ProductCard` and the interactive **Hanging Line** (web) with SVG placeholder garments; `/` renders them from seeded data.
+3. Web storefront (wire the tRPC client first; see `packages/api/CLAUDE.md`): **landing completion** (sticky header with nav, search, wishlist and live bag count; Fan Favorites filter pills + Previous/Next; Editorial Lookbook), PLP `/shop/[category]`, PDP `/product/[slug]`, cart drawer, `/checkout` (mock payment), `/account`.
 4. Admin dashboard: inventory CRUD (NEW/UPCYCLED), landing curation (Hanging Line order, Fan Favorites discounts), orders and revenue.
 5. Mobile app: shared types, the tRPC API and auth; touch Hanging Line; 2-column staggered grid; tabs Home/Shop/Upcycled/Bag/Profile.
 6. M-Pesa Daraja STK Push, callback webhook (verify `CheckoutRequestID`, store `MpesaReceiptNumber`, mark Paid, atomic stock decrement / mark sold).

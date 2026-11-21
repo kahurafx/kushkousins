@@ -71,7 +71,7 @@ Motion makes the interface feel physical and must never get in the way.
 5. **Animate only `transform` and `opacity`.**
 
 ### The Hanging Line (hero)
-- **Web (hover/click):** the hovered garment scales forward (~1.08) and lifts slightly. Neighbours part outward, with the offset falling off with distance (±1: 24px, ±2: 10px), all on `spring.default`. The editorial card (name, price, `One-of-a-kind` / `New`, `View Details`) rises from the garment, anchored to it. Garments sway gently only on hover entry, never in an idle loop. Keyboard focus produces the same result as hover.
+- **Web (hover/click):** the hovered garment scales forward (`hangingLine.activeScale`, 1.08) from its hanger hook, which stays on the rail. Neighbours part outward, with the offset falling off with distance (`partingOffset`: ±1 → 24px, ±2 → 10px, ±3 → 4px), all on `spring.default`. The editorial card (name, price, `One-of-a-kind` / `New`, `View Details`) rises from the garment, anchored to it. No idle looping motion (a hover-entry sway is a possible later refinement). Keyboard focus produces the same result as hover.
 - **Mobile (touch):** a horizontal carousel that tracks the finger 1:1 and keeps the grab offset. On release, project momentum (`current + (v/1000)·0.998/(1−0.998)`), snap to the garment nearest the projected point, and hand the release velocity to `spring.flick`. The centred garment scales up and reveals its card. A light haptic fires on each snap, on the same frame as the visual. Resist past the ends with a rubber band instead of a hard stop.
 
 ### Chrome and materials

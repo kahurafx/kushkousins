@@ -10,6 +10,16 @@ Read [../../packages/ui/DESIGN.md](../../packages/ui/DESIGN.md) before building 
 - Storefront routes: `/` (Hanging Line hero, Fan Favorites, Editorial Lookbook), `/shop/[category]`, `/product/[slug]`, `/checkout`, `/account`.
 - Admin: `src/app/admin/**`. Guard it **on the server** in `admin/layout.tsx` with `auth.api.getSession({ headers: await headers() })` and require `role === "ADMIN"`; otherwise redirect. Never guard admin only on the client.
 
+## Components
+- `src/components/product-card.tsx`: the chamfered card. The chamfer clips only the backdrop layer so the focus ring is never clipped, the link is stretched over the card, and the quick-add button is a sibling (never inside the `<a>`). Shows pills (discount, UPCYCLED, SOLD), an optional star and a disabled button when sold.
+- `src/components/hanging-line.tsx`: the hero rack.
+  - Slots keep a fixed layout box; only the inner layer moves.
+  - Hover is mouse-only and closes only when the pointer leaves the whole rack. A click selects (never toggles). Focus opens the card; Escape, an outside click, or blurring the rack closes it.
+  - Reduced motion: the card fades only.
+- `src/components/garment-art.tsx`: `images[0]` if present, else an SVG silhouette tinted with `swatch(color)`. Real images will need `images.remotePatterns` and `next/image`.
+- `src/lib/showcase.ts`: `toShowcaseItem()` maps tRPC rows to the slim props shape that client components receive.
+- `/` (`src/app/page.tsx`) calls `await connection()` and then `appRouter.createCaller({ session: null })`, so `next build` never touches the database.
+
 ## UI spec
 - **Header:** sticky and translucent. Left links: `NEW ARRIVALS`, `UPCYCLED`, `COLLECTIONS`, `ABOUT US` (`text-label uppercase`). Centre: the serif **kushkousins** wordmark. Right: Search, Account, Wishlist and a Bag icon with a live count.
 - **Hanging Line:** garments on wire hangers along a thin rail. Hover, focus or click scales the garment forward, parts its neighbours with springs and reveals an editorial card. Full motion spec is in DESIGN.md.
