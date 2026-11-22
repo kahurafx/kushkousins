@@ -28,7 +28,7 @@ before(async () => {
   const d = await import("@repo/db");
   m = { db: d.db, schema: d.schema, eq: d.eq, inArray: d.inArray, like: d.like, sql: d.sql, appRouter: (await import("./root")).appRouter };
   await m.db.insert(m.schema.user).values(Object.values(ids).map((id) => ({ id, name: id, email: `${id}@example.test`, role: id.endsWith("admin") ? "ADMIN" : "CUSTOMER" })));
-  const base = { description: null, discountPercent: null, categoryId: null, images: [] as string[] };
+  const base = { description: null, discountPercent: null, categoryId: null, images: [] };
   const n = await admin().admin.products.create({ ...base, mode: "NEW", name: "T New", slug: `t-${tag}-new`, priceCents: 300000, variants: [{ size: "M", color: "Black", stock: 5 }, { size: "L", color: "Black", stock: 2 }] });
   const u = await admin().admin.products.create({ ...base, mode: "UPCYCLED", name: "T 1of1", slug: `t-${tag}-ooak`, priceCents: 900000, size: "M", color: "Multi", originalMaterial: "Old kanga", artisanNotes: "Hand pieced" });
   const vid = async (productId: string, size = "M") =>

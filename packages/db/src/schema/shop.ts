@@ -12,7 +12,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
-import { inventoryMode, orderStatus, productStatus, type AddressInput } from "@repo/types";
+import { inventoryMode, orderStatus, productStatus, type AddressInput, type ProductImage } from "@repo/types";
 import { user } from "./auth";
 
 export const inventoryModeEnum = pgEnum("inventory_mode", inventoryMode);
@@ -38,7 +38,7 @@ export const products = pgTable(
     priceCents: integer("price_cents").notNull(),
     discountPercent: integer("discount_percent"),
     currency: text("currency").notNull().default("KES"),
-    images: text("images").array().notNull().default(sql`'{}'::text[]`),
+    images: jsonb("images").$type<ProductImage[]>().notNull().default(sql`'[]'::jsonb`),
     categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
     // UPCYCLED provenance
     originalMaterial: text("original_material"),

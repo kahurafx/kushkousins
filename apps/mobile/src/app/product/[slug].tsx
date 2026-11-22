@@ -2,12 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { availabilityLabel, compareSizes } from "@repo/types";
-import { chamfer, colors } from "@repo/ui";
-import { ChamferBackdrop } from "@/components/chamfer";
-import { GarmentArt } from "@/components/garment-art";
+import { ProductGallery } from "@/components/product-gallery";
 import { PressableScale } from "@/components/pressable-scale";
 import { Price } from "@/components/price";
 import { ErrorState, Loading } from "@/components/screen";
@@ -19,7 +17,6 @@ import { useTRPC } from "@/lib/trpc";
 export default function ProductScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const trpc = useTRPC();
-  const { width } = useWindowDimensions();
   const q = useQuery({ ...trpc.product.bySlug.queryOptions({ slug }), retry: false });
   const [choice, setChoice] = useState<{ size?: string; color?: string }>({});
 
@@ -50,10 +47,7 @@ export default function ProductScreen() {
     <SafeAreaView edges={["bottom"]} className="flex-1 bg-canvas">
       <Stack.Screen options={{ title: p.category?.name ?? "" }} />
       <ScrollView contentContainerClassName="pb-8">
-        <ChamferBackdrop size={chamfer.lg} fill={colors.stone} className="mx-4 items-center justify-center" style={{ height: width * 1.15 }}>
-          <GarmentArt item={item} width={width * 0.6} />
-          {status && <Text className="absolute left-8 top-4 bg-forest px-2 py-1 font-sans-medium text-label uppercase text-canvas">{status}</Text>}
-        </ChamferBackdrop>
+        <ProductGallery images={p.images} item={item} color={color} status={status} />
 
         <View className="px-4 pt-6">
           <Text className={`self-start font-sans-medium text-label uppercase ${unique ? "bg-tangerine px-2 py-1 text-forest" : "text-forest/70"}`}>{unique ? "1-of-1 Unique Piece" : "New"}</Text>

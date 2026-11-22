@@ -36,7 +36,7 @@ export const toShowcaseItem = (p: ProductWithVariants): ShowcaseItem => ({
   discountPercent: p.discountPercent,
   color: p.variants[0]?.color ?? "Stone",
   silhouette: silhouetteFor(p.name),
-  image: p.images[0] ?? null,
+  image: p.images[0]?.url ?? null,
   featured: p.featured,
   variants: p.variants.map(({ id, size, color, stock }) => ({ id, size, color, stock })),
 });

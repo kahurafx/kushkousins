@@ -4,6 +4,7 @@ import { useState } from "react";
 import { compareSizes } from "@repo/types";
 import { bagDrawer, cart } from "@/lib/cart";
 import { availabilityLabel, type ShowcaseItem } from "@/lib/showcase";
+import { useSelectedColor } from "./product-gallery";
 import { Price } from "./price";
 
 /** Size/colour selection + add to bag. Inline on desktop (sticky column), pinned bar on phones. */
@@ -12,7 +13,7 @@ export function BuyBox({ item }: { item: ShowcaseItem }) {
   const colors = [...new Set(item.variants.map((v) => v.color))];
   const firstInStock = item.variants.find((v) => v.stock > 0) ?? item.variants[0];
   const [size, setSize] = useState(firstInStock?.size);
-  const [color, setColor] = useState(firstInStock?.color);
+  const { color, setColor } = useSelectedColor();
   const variant = item.variants.find((v) => v.size === size && v.color === color);
   const status = availabilityLabel(item);
   const canAdd = !!variant && variant.stock > 0 && item.availability === "in_stock";

@@ -22,7 +22,7 @@ pnpm db:studio
 - **products**:
   - `mode` NEW | UPCYCLED; `status` active | archived | sold.
   - `price_cents`, `discount_percent` (0–90, CHECK). Sale price is `salePriceCents()` from `@repo/types`, used everywhere.
-  - `images text[]`; `original_material` and `artisan_notes` for UPCYCLED.
+  - `images jsonb` = ordered `[{ url, color, label }]` (`ProductImage` in `@repo/types`; `color` null = shown for every colour, otherwise it must equal a variant colour; migration `0004` converted the old `text[]`); `original_material` and `artisan_notes` for UPCYCLED.
   - Curation: `hanging_line_position` / `fan_favorite_position` (null = not shown, lower = first), and `featured` (★ editor's pick, managed from admin curation; migration `0001`).
 - **product_variants**: the **only place stock lives**. NEW has a size × colour matrix. UPCYCLED has exactly one variant with stock 1, which still has a size and colour so filters work. `stock >= 0` CHECK.
 - **orders**: `subtotal/shipping/total_cents`, `shipping_address` jsonb snapshot, `mpesa_receipt_number` (unique; set from the attempt that paid it), `paid_at`. `user_id` is **`onDelete: restrict`** on purpose, to keep order history. Better Auth admin `removeUser` therefore fails for customers with orders; ban them instead.

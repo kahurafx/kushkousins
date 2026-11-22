@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { and, db, eq, inArray, schema, sql } from "@repo/db";
-import { CartItemSchema, salePriceCents, shippingCents } from "@repo/types";
+import { CartItemSchema, imagesForColor, salePriceCents, shippingCents } from "@repo/types";
 import { publicProcedure, router } from "../trpc";
 
 const { products, productVariants, orders, orderItems } = schema;
@@ -50,7 +50,7 @@ export const cartRouter = router({
             mode: product.mode,
             size: variant.size,
             color: variant.color,
-            image: product.images[0] ?? null,
+            image: imagesForColor(product.images, variant.color)[0]?.url ?? null, // the photo of the colour in the bag
             priceCents: product.priceCents,
             discountPercent: product.discountPercent,
             salePriceCents: salePriceCents(product),

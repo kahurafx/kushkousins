@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { and, asc, db, desc, eq, ilike, inArray, ne, or, schema } from "@repo/db";
-import { AdminProductCreateSchema, AdminProductUpdateSchema, InventoryModeSchema, ProductStatusSchema } from "@repo/types";
+import { AdminProductCreateSchema, AdminProductUpdateSchema, alignImageColors, InventoryModeSchema, ProductStatusSchema, type ProductImage } from "@repo/types";
 import { rethrowUnique, type Tx } from "../../stock";
 import { adminProcedure, router } from "../../trpc";
 
@@ -26,7 +26,7 @@ async function reservedVariantIds(tx: Tx, variantIds: string[]) {
   return new Set(rows.flatMap((r) => (r.id ? [r.id] : [])));
 }
 
-const productValues = (i: { name: string; slug: string; description: string | null; priceCents: number; discountPercent: number | null; categoryId: string | null; images: string[] }) => ({
+const productValues = (i: { name: string; slug: string; description: string | null; priceCents: number; discountPercent: number | null; categoryId: string | null; images: ProductImage[] }) => ({
   name: i.name,
   slug: i.slug,
   description: i.description || null,
@@ -35,6 +35,20 @@ const productValues = (i: { name: string; slug: string; description: string | nu
   categoryId: i.categoryId,
   images: i.images,
 });
+
+/**
+ * Photos may be tagged with a variant colour; every tag must be one of the product's colours.
+ * UPCYCLED pieces have a single colour, so tagging is meaningless there and refused.
+ */
+function checkedImages(input: { mode: "NEW" | "UPCYCLED"; images: ProductImage[] } & ({ variants: { color: string }[] } | { color: string })) {
+  const colors = "variants" in input ? input.variants.map((v) => v.color) : [];
+  if (input.mode === "UPCYCLED" && input.images.some((i) => i.color)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "1-of-1 pieces have a single colour, so photos can't be tagged by colour." });
+  }
+  const aligned = alignImageColors(input.images, colors);
+  if (!aligned.ok) throw new TRPCError({ code: "BAD_REQUEST", message: aligned.message });
+  return aligned.images;
+}
 
 export const adminProductsRouter = router({
   list: adminProcedure
@@ -66,8 +80,9 @@ export const adminProductsRouter = router({
 
   categories: adminProcedure.query(() => db.select().from(categories).orderBy(asc(categories.name))),
 
-  create: adminProcedure.input(AdminProductCreateSchema).mutation(({ input }) =>
-    db
+  create: adminProcedure.input(AdminProductCreateSchema).mutation(({ input: raw }) => {
+    const input = { ...raw, images: checkedImages(raw) };
+    return db
       .transaction(async (tx) => {
         const [product] = await tx
           .insert(products)
@@ -85,11 +100,12 @@ export const adminProductsRouter = router({
         await tx.insert(productVariants).values(variants.map((v) => ({ ...v, productId: product!.id })));
         return product!;
       })
-      .catch((e) => rethrowUnique(e, uniqueMessages)),
-  ),
+      .catch((e) => rethrowUnique(e, uniqueMessages));
+  }),
 
-  update: adminProcedure.input(AdminProductUpdateSchema).mutation(({ input }) =>
-    db
+  update: adminProcedure.input(AdminProductUpdateSchema).mutation(({ input: raw }) => {
+    const input = { ...raw, images: checkedImages(raw) };
+    return db
       .transaction(async (tx) => {
         const [current] = await tx.select().from(products).where(eq(products.id, input.id)).for("update");
         if (!current) throw new TRPCError({ code: "NOT_FOUND" });
@@ -147,8 +163,8 @@ export const adminProductsRouter = router({
         }
         return { id: input.id };
       })
-      .catch((e) => rethrowUnique(e, uniqueMessages)),
-  ),
+      .catch((e) => rethrowUnique(e, uniqueMessages));
+  }),
 
   /**
    * active | archived for any product; sold ↔ active for UPCYCLED (sets stock 0/1 in the same tx).

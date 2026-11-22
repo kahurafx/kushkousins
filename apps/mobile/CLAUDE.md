@@ -15,7 +15,7 @@ A native translation of the storefront, not a webview. Read [../../packages/ui/D
   - `showcase.ts`, `motion.ts` (`@repo/ui` springs → Reanimated `withSpring`), `config.ts`.
 - `src/components/`:
   - `hanging-line` (native snap scroll + Reanimated scale + haptic on centre change).
-  - `product-card` / `chamfer` (SVG chamfer backdrop), `staggered-grid`, `pressable-scale` (press-in feedback), `garment-art`, `price`, `listing`, `screen`.
+  - `product-card` / `chamfer` (SVG chamfer backdrop), `staggered-grid`, `pressable-scale` (press-in feedback), `garment-art`, `product-gallery` (swipeable photos for the chosen colour, remounted per colour), `similar-products`, `price`, `listing`, `screen`.
 
 ## Styling
 - **NativeWind 4.2.7 + Tailwind 3** (not v5 RC). The theme is generated in `tailwind.config.ts` from `@repo/ui` tokens. Font sizes are in px, because NativeWind's rem isn't 16px.

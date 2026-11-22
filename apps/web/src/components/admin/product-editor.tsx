@@ -8,6 +8,7 @@ import type { RouterOutputs } from "@repo/api";
 import { AdminProductCreateSchema, AdminProductUpdateSchema, salePriceCents, slugify } from "@repo/types";
 import { formatKES } from "@repo/ui";
 import { useTRPC } from "@/lib/trpc";
+import { ImageListEditor, newImageRow, type ImageRow } from "./image-list-editor";
 
 type Product = RouterOutputs["admin"]["products"]["byId"];
 type Category = RouterOutputs["admin"]["products"]["categories"][number];
@@ -33,7 +34,7 @@ export function ProductEditor({ product, categories }: { product?: Product; cate
   const [priceKes, setPriceKes] = useState(product ? String(product.priceCents / 100) : "");
   const [discount, setDiscount] = useState(product?.discountPercent ? String(product.discountPercent) : "");
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? "");
-  const [images, setImages] = useState(product?.images.join("\n") ?? "");
+  const [images, setImages] = useState<ImageRow[]>(product?.images.map((i) => newImageRow({ url: i.url, color: i.color ?? "", label: i.label ?? "" })) ?? []);
   const [rows, setRows] = useState<Row[]>(
     product?.mode === "NEW"
       ? product.variants.map((v) => newRow({ id: v.id, size: v.size, color: v.color, stock: v.stock, expectedStock: v.stock }))
@@ -62,7 +63,10 @@ export function ProductEditor({ product, categories }: { product?: Product; cate
       priceCents,
       discountPercent: discountPercent || null,
       categoryId: categoryId || null,
-      images: images.split("\n").map((s) => s.trim()).filter(Boolean),
+      // Colour tags only exist for NEW products (1-of-1 pieces have a single colour).
+      images: images
+        .filter((i) => i.url.trim())
+        .map((i) => ({ url: i.url.trim(), color: mode === "NEW" ? i.color.trim() || null : null, label: i.label.trim() || null })),
     };
     const variantRows = rows.map(({ id, size, color, stock, expectedStock }) => ({ id, size: size.trim(), color: color.trim(), stock, expectedStock }));
     return mode === "NEW"
@@ -181,11 +185,24 @@ export function ProductEditor({ product, categories }: { product?: Product; cate
             ))}
           </select>
         </label>
-        <label className={`${label} sm:col-span-2`}>
-          Image URLs
-          <textarea value={images} onChange={(e) => setImages(e.target.value)} rows={3} placeholder="https://…  (one per line)" className={field} {...err("images")} />
-          {errText("images") ?? errText("images.0") ?? <span className={hint}>One https URL per line, first is the main image. Uploads come later; empty shows the placeholder.</span>}
-        </label>
+        <div className="sm:col-span-2">
+          <h2 className={label}>Photos</h2>
+          <span className={hint}>
+            The first is the main photo on cards and the rail (a cut-out with a transparent background looks best there). Tag a photo with a colour and the product page shows it when that colour is chosen. Untagged photos show for every colour. Empty shows the placeholder.
+          </span>
+          <div className="mt-2">
+            <ImageListEditor
+              rows={images}
+              onChange={setImages}
+              colors={mode === "NEW" ? [...new Set(rows.map((r) => r.color.trim()).filter(Boolean))] : []}
+              error={(i) => err(`images.${i}.url`)}
+            />
+          </div>
+          {(() => {
+            const k = Object.keys(errors).find((x) => x === "images" || x.startsWith("images."));
+            return k ? <span className="mt-1 block text-[0.75rem] normal-case tracking-normal text-espresso">{errors[k]}</span> : null;
+          })()}
+        </div>
       </section>
 
       {mode === "NEW" ? (

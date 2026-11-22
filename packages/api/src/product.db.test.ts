@@ -21,7 +21,7 @@ before(async () => {
   const { categories, products } = m.schema;
   const [cat] = await m.db.insert(categories).values({ slug: `t-${tag}-cat`, name: `T ${tag}` }).returning();
   categoryId = cat!.id;
-  const row = (key: string, o: Partial<typeof products.$inferInsert>) => ({ slug: `t-${tag}-${key}`, name: `T ${key}`, mode: "NEW" as const, priceCents: 300000, images: [] as string[], ...o });
+  const row = (key: string, o: Partial<typeof products.$inferInsert>) => ({ slug: `t-${tag}-${key}`, name: `T ${key}`, mode: "NEW" as const, priceCents: 300000, images: [], ...o });
   const rows = await m.db
     .insert(products)
     .values([

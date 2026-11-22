@@ -57,8 +57,8 @@ test("slugify and receipt validation", () => {
 
 test("admin product update rejects http images and bad slugs", () => {
   const base = { id: "00000000-0000-4000-8000-000000000000", mode: "UPCYCLED", name: "Test", description: null, priceCents: 100, discountPercent: null, categoryId: null, size: "M", color: "Red", originalMaterial: "Old coat", artisanNotes: "Hand stitched" };
-  assert.ok(AdminProductUpdateSchema.safeParse({ ...base, slug: "ok-slug", images: ["https://x.test/a.jpg"] }).success);
-  assert.ok(!AdminProductUpdateSchema.safeParse({ ...base, slug: "ok-slug", images: ["http://x.test/a.jpg"] }).success);
+  assert.ok(AdminProductUpdateSchema.safeParse({ ...base, slug: "ok-slug", images: [{ url: "https://x.test/a.jpg", color: null, label: null }] }).success);
+  assert.ok(!AdminProductUpdateSchema.safeParse({ ...base, slug: "ok-slug", images: [{ url: "http://x.test/a.jpg", color: null, label: null }] }).success);
   assert.ok(!AdminProductUpdateSchema.safeParse({ ...base, slug: "Bad Slug", images: [] }).success);
 });
 
@@ -80,4 +80,27 @@ test("parseStkCallback reads success metadata and tolerates failures without it"
   const cancelled = StkCallbackSchema.parse({ Body: { stkCallback: { MerchantRequestID: "m", CheckoutRequestID: "ws_CO_2", ResultCode: "1032", ResultDesc: "Request cancelled by user" } } });
   assert.equal(parseStkCallback(cancelled).resultCode, 1032);
   assert.equal(parseStkCallback(cancelled).amountKes, undefined);
+});
+
+import { alignImageColors, imagesForColor, type ProductImage } from "./index.ts";
+
+const img = (url: string, color: string | null = null): ProductImage => ({ url: `https://x.test/${url}`, color, label: null });
+
+test("imagesForColor: the colour's photos first, then untagged; others hidden", () => {
+  const all = [img("any"), img("black1", "Black"), img("white1", "White"), img("black2", "black ")];
+  assert.deepEqual(imagesForColor(all, "Black").map((i) => i.url.slice(15)), ["black1", "black2", "any"]);
+});
+
+test("imagesForColor: nothing tagged for the colour (or no colour) shows everything", () => {
+  const all = [img("a"), img("white1", "White")];
+  assert.equal(imagesForColor(all, "Black"), all);
+  assert.equal(imagesForColor(all, null), all);
+  assert.deepEqual(imagesForColor([], "Black"), []);
+});
+
+test("alignImageColors: canonical spelling, rejects unknown colours", () => {
+  const ok = alignImageColors([img("a"), img("b", " black")], ["Black", "White"]);
+  assert.ok(ok.ok && ok.images[1]!.color === "Black");
+  const bad = alignImageColors([img("b", "Red")], ["Black"]);
+  assert.ok(!bad.ok && /Red/.test(bad.message));
 });

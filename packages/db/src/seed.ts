@@ -23,6 +23,8 @@ type Seed = {
   artisanNotes?: string;
   sold?: boolean;
   image: string;
+  /** Extra colour-specific photos (colour name -> URL). `image` is shown for the first colour. */
+  colorImages?: Record<string, string>;
 };
 
 /**
@@ -41,6 +43,8 @@ const catalog: Seed[] = [
     description: "480gsm brushed cotton fleece with a boxy drop shoulder and tonal embroidered wordmark." },
   { slug: "nairobi-boxy-tee", name: "Nairobi Boxy Tee", mode: "NEW", category: "streetwear", priceKes: 2500, sizes: ["S", "M", "L", "XL"], colors: ["Cream", "Espresso"], stock: 25, fanFavorite: 2, hangingLine: 3,
     image: photo("1778671394516-8270eac13c42", "765,20,1485,1850", "pad-left=10"),
+    // Demo of colour-linked photos: the CDN darkens the same cut-out for the Espresso colourway.
+    colorImages: { Espresso: `${photo("1778671394516-8270eac13c42", "765,20,1485,1850", "pad-left=10")}&exp=-60` },
     description: "Heavy jersey tee cut wide and cropped, garment-dyed for a lived-in hand." },
   { slug: "tailored-linen-blazer", name: "Tailored Linen Blazer", mode: "NEW", category: "formal", priceKes: 14500, sizes: ["S", "M", "L"], colors: ["Sand"], stock: 5, hangingLine: 1,
     image: photo("1761499101317-e32c4ed50b2f", "569,1209,1331,1774", "pad-right=25"),
@@ -128,7 +132,12 @@ async function main() {
         hangingLinePosition: s.hangingLine ?? null,
         fanFavoritePosition: s.fanFavorite ?? null,
         featured: s.featured ?? false,
-        images: [s.image],
+        images: s.colorImages
+          ? [
+              { url: s.image, color: s.colors[0]!, label: "Front" },
+              ...Object.entries(s.colorImages).map(([color, url]) => ({ url, color, label: "Front" })),
+            ]
+          : [{ url: s.image, color: null, label: null }],
         soldAt: s.sold ? new Date("2026-11-01T10:00:00Z") : null,
       };
       const [product] = await tx

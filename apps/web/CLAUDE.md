@@ -25,6 +25,8 @@ Read [../../packages/ui/DESIGN.md](../../packages/ui/DESIGN.md) before building 
   - Slots keep a fixed layout box; only inner layers move. The swing rotates a `pointer-events-none` image layer, never the `<li>` or button, so a swinging hem can't steal hover.
   - Hover is mouse-only and closes only when the pointer leaves the whole rack. A click selects (never toggles). Focus opens the hang-tag (no swing); Escape, an outside click, or blurring the rack closes it.
   - Reduced motion: no swing or parting; dimming and the tag fade stay.
+- `src/components/product-gallery.tsx`: `SelectedColorProvider` holds the chosen colour above both the gallery and `BuyBox` (siblings on the PDP); `ProductGallery` shows `imagesForColor(images, color)` from `@repo/types`. Colour chips only render when a product has more than one colour.
+- `src/components/admin/image-list-editor.tsx`: the product editor's photo rows (URL, colour tag, label, reorder).
 - `src/components/garment-art.tsx`: `images[0]` if present, else an SVG silhouette tinted with `swatch(color)`. Real images will need `images.remotePatterns` and `next/image`.
 - `src/lib/showcase.ts`: `toShowcaseItem()` maps tRPC rows to the slim props shape that client components receive.
 - `/` (`src/app/page.tsx`) calls `await connection()` and then `appRouter.createCaller({ session: null })`, so `next build` never touches the database.

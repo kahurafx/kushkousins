@@ -51,6 +51,49 @@ export const ProductVariantSchema = z.object({
 });
 export type ProductVariant = z.infer<typeof ProductVariantSchema>;
 
+/** One product photo. `color` ties it to a variant colour; null shows for every colour. */
+export const ProductImageSchema = z.object({
+  url: z.string().trim().url().startsWith("https://", "Image URLs must use https"),
+  color: z.string().trim().min(1).max(40).nullable(),
+  label: z.string().trim().min(1).max(60).nullable(),
+});
+export type ProductImage = z.infer<typeof ProductImageSchema>;
+
+/**
+ * The photos to show for a selected colour: that colour's own first, then the untagged ones.
+ * If nothing is tagged for the colour (or none is selected) every photo is shown, in order.
+ * Shared by web, mobile and the bag so they can't drift apart.
+ */
+export function imagesForColor(images: ProductImage[], color: string | null | undefined): ProductImage[] {
+  if (!color) return images;
+  const key = color.trim().toLowerCase();
+  const matches = (i: ProductImage) => i.color?.trim().toLowerCase() === key;
+  const own = images.filter(matches);
+  return own.length ? [...own, ...images.filter((i) => !i.color)] : images;
+}
+
+/**
+ * Admin save check: a tagged colour must be one of the product's variant colours (so renaming a
+ * colour can't silently strand its photos). Tags are rewritten to the variant's exact spelling.
+ */
+export function alignImageColors(
+  images: ProductImage[],
+  variantColors: string[],
+): { ok: true; images: ProductImage[] } | { ok: false; message: string } {
+  const byKey = new Map(variantColors.map((c) => [c.trim().toLowerCase(), c]));
+  const out: ProductImage[] = [];
+  for (const i of images) {
+    if (!i.color) {
+      out.push(i);
+      continue;
+    }
+    const exact = byKey.get(i.color.trim().toLowerCase());
+    if (!exact) return { ok: false, message: `A photo is tagged "${i.color}", which isn't one of this product's colours. Pick a current colour or clear the tag.` };
+    out.push({ ...i, color: exact });
+  }
+  return { ok: true, images: out };
+}
+
 export const ProductSchema = z.object({
   id: z.string(),
   slug: z.string(),
@@ -61,7 +104,7 @@ export const ProductSchema = z.object({
   priceCents: cents,
   discountPercent: z.number().int().min(0).max(90).nullable(),
   currency: z.string().length(3),
-  images: z.array(z.string()),
+  images: z.array(ProductImageSchema),
   categoryId: z.string().nullable(),
   originalMaterial: z.string().nullable(), // UPCYCLED only
   artisanNotes: z.string().nullable(), // UPCYCLED only
@@ -175,7 +218,7 @@ const ProductBase = z.object({
   priceCents: z.number().int().min(0).max(100_000_000).multipleOf(100, "Prices are whole shillings"),
   discountPercent: z.number().int().min(0).max(90).nullable(),
   categoryId: z.string().uuid().nullable(),
-  images: z.array(z.string().trim().url().startsWith("https://", "Image URLs must use https")).max(12),
+  images: z.array(ProductImageSchema).max(12),
 });
 
 const uniquePairs = (rows: { size: string; color: string }[]) =>
