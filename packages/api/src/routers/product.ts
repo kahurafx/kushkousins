@@ -99,7 +99,7 @@ export const productRouter = router({
   hangingLine: publicProcedure.query(() =>
     db.query.products.findMany({
       where: and(listed, isNotNull(products.hangingLinePosition)),
-      with: { variants: true },
+      with: { variants: true, category: true },
       orderBy: [asc(products.hangingLinePosition)],
     }),
   ),

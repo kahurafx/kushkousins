@@ -2,7 +2,8 @@ import type { RouterOutputs } from "@repo/api";
 import { availabilityOf, salePriceCents, type Availability } from "@repo/types";
 import { silhouetteFor, type Silhouette } from "@repo/ui";
 
-type ProductWithVariants = RouterOutputs["product"]["hangingLine"][number];
+// Category is optional extra data (only some queries join it); the showcase shape never needs it.
+type ProductWithVariants = Omit<RouterOutputs["product"]["hangingLine"][number], "category">;
 
 export type { Availability } from "@repo/types";
 export { availabilityLabel, availabilityOf } from "@repo/types";

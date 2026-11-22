@@ -50,12 +50,28 @@ const swatches: Record<string, string> = {
 /** Fill colour for a variant colour name; unknown names fall back to stone. */
 export const swatch = (color: string) => swatches[color.trim().toLowerCase()] ?? swatches.stone!;
 
-// The Hanging Line: hovered garment scales forward from its hook (no lift: the hook stays on the rail);
-// neighbours part outward.
+// The Hanging Line. Web: the hovered garment swings on its hook, neighbours part outward and dim.
+// Mobile: the centred garment scales forward (activeScale) and the rest dim.
 export const hangingLine = {
   activeScale: 1.08,
   parting: [24, 10, 4], // px for neighbours at distance 1, 2, 3
+  dimOpacity: 0.55, // garments that aren't the focus
+  // Deliberately underdamped (ζ ≈ 0.25, period ≈ 0.9s): a hanger rocks a few times and settles.
+  // The one exception to spring.default's no-overshoot rule. Units: rotate in degrees.
+  swing: { stiffness: 50, damping: 3.5, mass: 1 },
+  swingVelocity: { min: 10, max: 40, perPxPerSec: 0.04 }, // deg/s kick from the hand's speed
 } as const;
+
+/**
+ * Rotational kick (deg/s) for a garment the pointer just entered. The hem swings away from the
+ * side the hand came from (from the left → hem right → negative rotate about the top hook);
+ * faster hands push harder, clamped so a slow entry still nudges and a flick never spins it.
+ */
+export const swingImpulse = (entryX: number, centerX: number, speedPxPerSec: number) => {
+  const { min, max, perPxPerSec } = hangingLine.swingVelocity;
+  const magnitude = Math.min(max, Math.max(min, Math.abs(speedPxPerSec) * perPxPerSec));
+  return (entryX < centerX ? -1 : 1) * magnitude;
+};
 
 /** Horizontal offset (px) for garment `index` when `active` is hovered/selected. */
 export const partingOffset = (index: number, active: number | null) => {

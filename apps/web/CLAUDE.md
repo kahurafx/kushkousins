@@ -22,9 +22,9 @@ Read [../../packages/ui/DESIGN.md](../../packages/ui/DESIGN.md) before building 
 ## Components
 - `src/components/product-card.tsx`: the chamfered card. The chamfer clips only the backdrop layer so the focus ring is never clipped, the link is stretched over the card, and the quick-add button is a sibling (never inside the `<a>`). Shows pills (discount, UPCYCLED, SOLD), an optional star and a disabled button when sold.
 - `src/components/hanging-line.tsx`: the hero rack.
-  - Slots keep a fixed layout box; only the inner layer moves.
-  - Hover is mouse-only and closes only when the pointer leaves the whole rack. A click selects (never toggles). Focus opens the card; Escape, an outside click, or blurring the rack closes it.
-  - Reduced motion: the card fades only.
+  - Slots keep a fixed layout box; only inner layers move. The swing rotates a `pointer-events-none` image layer, never the `<li>` or button, so a swinging hem can't steal hover.
+  - Hover is mouse-only and closes only when the pointer leaves the whole rack. A click selects (never toggles). Focus opens the hang-tag (no swing); Escape, an outside click, or blurring the rack closes it.
+  - Reduced motion: no swing or parting; dimming and the tag fade stay.
 - `src/components/garment-art.tsx`: `images[0]` if present, else an SVG silhouette tinted with `swatch(color)`. Real images will need `images.remotePatterns` and `next/image`.
 - `src/lib/showcase.ts`: `toShowcaseItem()` maps tRPC rows to the slim props shape that client components receive.
 - `/` (`src/app/page.tsx`) calls `await connection()` and then `appRouter.createCaller({ session: null })`, so `next build` never touches the database.
@@ -33,7 +33,7 @@ Read [../../packages/ui/DESIGN.md](../../packages/ui/DESIGN.md) before building 
 
 ## UI spec
 - **Header:** sticky and translucent. Left links: `NEW ARRIVALS`, `UPCYCLED`, `COLLECTIONS`, `ABOUT US` (`text-label uppercase`). Centre: the serif **kushkousins** wordmark. Right: Search, Account, Wishlist and a Bag icon with a live count.
-- **Hanging Line:** garments on wire hangers along a thin rail. Hover, focus or click scales the garment forward, parts its neighbours with springs and reveals an editorial card. Full motion spec is in DESIGN.md.
+- **Hanging Line:** garments on wire hangers along a thin rail. Hover swings the garment on its hook (`hangingLine.swing`, kicked by `swingImpulse`), parts and dims its neighbours, and fades in a hang-tag (category · availability, price) linking to the PDP. Full motion spec is in DESIGN.md.
 - **Fan Favorites:** chamfered cards, filter pills (`All`, `Upcycled`, `Streetwear`, `Formal`, `Outerwear`), strikethrough discount pricing, and `Previous`/`Next` with progress.
 - **PDP:** gallery, a size selector **or** a "1-of-1 Unique Piece" badge with provenance and materials, and a sticky add-to-bag bar.
 - **Cart drawer:** slides from the right and **revalidates stock on the server** before checkout. 1-of-1 items must not double-sell.

@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { partingOffset, silhouetteFor, silhouettes, snapIndex, swatch } from "./garments.ts";
+import { partingOffset, silhouetteFor, silhouettes, snapIndex, swatch, swingImpulse } from "./garments.ts";
+
+test("swingImpulse pushes the hem away from the entry side, scaled by hand speed and clamped", () => {
+  assert.ok(swingImpulse(10, 100, 500) < 0, "from the left: hem swings right (negative rotate)");
+  assert.ok(swingImpulse(190, 100, 500) > 0, "from the right: hem swings left");
+  assert.equal(swingImpulse(10, 100, 500), -20);
+  assert.equal(swingImpulse(10, 100, 0), -10, "a still hand still nudges");
+  assert.equal(swingImpulse(190, 100, 1e6), 40, "a flick never spins it");
+});
 
 test("partingOffset pushes neighbours away, fading with distance", () => {
   assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map((i) => partingOffset(i, 3)), [-4, -10, -24, 0, 24, 10, 4]);
