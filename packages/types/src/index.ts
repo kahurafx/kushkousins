@@ -70,6 +70,11 @@ export const ProductSchema = z.object({
 });
 export type Product = z.infer<typeof ProductSchema>;
 
+export const SimilarProductsInputSchema = z.object({
+  productId: z.string().uuid(),
+  limit: z.number().int().min(1).max(12).default(4),
+});
+
 const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL"];
 /** Garment sizes in wearing order (XS < S < M …); unknown sizes sort after, alphabetically. */
 export const compareSizes = (a: string, b: string) => {

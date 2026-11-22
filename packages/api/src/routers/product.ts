@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { and, asc, db, desc, eq, exists, ilike, inArray, isNotNull, ne, schema, sql } from "@repo/db";
-import { compareSizes, InventoryModeSchema } from "@repo/types";
+import { compareSizes, InventoryModeSchema, SimilarProductsInputSchema } from "@repo/types";
 import { publicProcedure, router } from "../trpc";
 
 const { products, categories, productVariants } = schema;
@@ -94,6 +94,28 @@ export const productRouter = router({
     });
     if (!product) throw new TRPCError({ code: "NOT_FOUND" });
     return product;
+  }),
+
+  /**
+   * "Similar products" rail: same category first, then same mode, then nearest sale price.
+   * Unlike listings it leaves out sold pieces: a sold 1-of-1 is a dead end in a recommendation.
+   */
+  similar: publicProcedure.input(SimilarProductsInputSchema).query(async ({ input }) => {
+    const target = await db.query.products.findFirst({ where: and(eq(products.id, input.productId), listed) });
+    if (!target) return []; // A missing rail must never fail the page.
+    const targetPrice = Math.round((target.priceCents * (100 - (target.discountPercent ?? 0))) / 10000) * 100;
+    return db.query.products.findMany({
+      where: and(listed, ne(products.status, "sold"), ne(products.id, target.id)),
+      with: { variants: true, category: true },
+      orderBy: [
+        // coalesce: `=` is NULL for uncategorised rows, and DESC would sort NULLs first.
+        ...(target.categoryId ? [desc(sql`coalesce(${products.categoryId} = ${target.categoryId}, false)`)] : []),
+        desc(sql`(${products.mode} = ${target.mode})`),
+        asc(sql`abs(${salePriceSql} - ${targetPrice})`),
+        asc(products.name),
+      ],
+      limit: input.limit,
+    });
   }),
 
   hangingLine: publicProcedure.query(() =>

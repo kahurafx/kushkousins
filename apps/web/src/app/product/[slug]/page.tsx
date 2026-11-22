@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { cache } from "react";
+import { cache, Suspense } from "react";
 import { TRPCError } from "@trpc/server";
 import { BuyBox } from "@/components/buy-box";
 import { GarmentArt } from "@/components/garment-art";
 import { Price } from "@/components/price";
+import { SimilarProducts } from "@/components/similar-products";
 import { WishlistButton } from "@/components/wishlist-button";
 import { availabilityLabel, toShowcaseItem } from "@/lib/showcase";
 import { publicCaller } from "@/lib/trpc-server";
@@ -92,6 +93,10 @@ export default async function ProductPage({ params }: Props) {
           </div>
         </section>
       </div>
+
+      <Suspense fallback={null}>
+        <SimilarProducts productId={product.id} />
+      </Suspense>
     </main>
   );
 }

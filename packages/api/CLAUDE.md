@@ -10,7 +10,7 @@ All app data flows through this router. It is mounted by `apps/web/src/app/api/t
   - Imports only the `Session` **type** from auth, so it is testable without a DB.
 - `src/context.ts`: `createTRPCContext({ headers })` returns `{ session }` via `auth.api.getSession`.
 - `src/routers/*.ts` holds one router per domain, merged in `src/root.ts`. Routers import `db` from `@repo/db` directly.
-  - `product.list` (mode, category, q, sizes, colors, price range on **sale price**, sort) `| facets | bySlug | hangingLine | fanFavorites`: public.
+  - `product.list` (mode, category, q, sizes, colors, price range on **sale price**, sort) `| facets | bySlug | similar | hangingLine | fanFavorites`: public.
   - `cart.validate`: public. Server prices and availability for a client bag; counts the caller's own pending reservation as available to them.
   - `order.create | cancel | pay | paymentStatus | byId | mine`: protected, own orders only. `create` lazily expires stale reservations, then releases the caller's pending order and reserves in one id-ordered pass. `pay` sends the STK Push (or mock-pays with `MOCK_PAYMENTS=true`); `paymentStatus` is polled and reconciles via STK Query.
   - `address.list | create | update | setDefault | remove` and `wishlist.ids | list | toggle`: protected.
