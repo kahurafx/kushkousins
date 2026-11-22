@@ -11,6 +11,7 @@ import { GarmentArt } from "@/components/garment-art";
 import { PressableScale } from "@/components/pressable-scale";
 import { Price } from "@/components/price";
 import { ErrorState, Loading } from "@/components/screen";
+import { SimilarProducts } from "@/components/similar-products";
 import { cart } from "@/lib/cart";
 import { toShowcaseItem } from "@/lib/showcase";
 import { useTRPC } from "@/lib/trpc";
@@ -104,6 +105,8 @@ export default function ProductScreen() {
             </View>
           )}
         </View>
+
+        <SimilarProducts productId={p.id} />
       </ScrollView>
 
       {/* Pinned add-to-bag bar */}
