@@ -2,12 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { partingOffset, silhouetteFor, silhouettes, snapIndex, swatch, swingImpulse } from "./garments.ts";
 
-test("swingImpulse pushes the hem away from the entry side, scaled by hand speed and clamped", () => {
-  assert.ok(swingImpulse(10, 100, 500) < 0, "from the left: hem swings right (negative rotate)");
-  assert.ok(swingImpulse(190, 100, 500) > 0, "from the right: hem swings left");
-  assert.equal(swingImpulse(10, 100, 500), -20);
-  assert.equal(swingImpulse(10, 100, 0), -10, "a still hand still nudges");
-  assert.equal(swingImpulse(190, 100, 1e6), 40, "a flick never spins it");
+test("swingImpulse pushes the hem the way the hand moves, scaled by speed and clamped", () => {
+  assert.equal(swingImpulse(10, 100, 500), -20, "moving right: hem swings right (negative rotate)");
+  assert.equal(swingImpulse(10, 100, -500), 20, "moving left wins over entering on the left half");
+  assert.equal(swingImpulse(10, 100, 0), -10, "still hand: away from the entry side, gentle nudge");
+  assert.equal(swingImpulse(190, 100, 100), 10, "slow hand: entry side decides");
+  assert.equal(swingImpulse(10, 100, 1e6), -40, "a flick never spins it");
 });
 
 test("partingOffset pushes neighbours away, fading with distance", () => {

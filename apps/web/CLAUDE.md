@@ -40,7 +40,7 @@ Read [../../packages/ui/DESIGN.md](../../packages/ui/DESIGN.md) before building 
 
 ## Rules
 - Use Server Components by default and add `"use client"` only for interaction (motion, drawer, forms).
-- Use `motion` / Framer Motion springs with `spring.default` from `@repo/ui`; use `spring.flick` only after momentum. Respect `useReducedMotion()`.
+- Use `motion` / Framer Motion springs with `spring.default` from `@repo/ui`; use `spring.flick` only after momentum. The one underdamped exception is the Hanging Line swing (`hangingLine.swing`): a hanger physically rocks. Respect `useReducedMotion()`.
 - **Data goes through tRPC** (`@repo/api`). Client Components use `@trpc/tanstack-react-query` hooks (wired in Phase 3; see `packages/api/CLAUDE.md`), and Server Components use `appRouter.createCaller(...)`. Do not add Server Actions or ad-hoc route handlers for app data. The only exceptions are `/api/auth/*`, `/api/payments/callback/[secret]` (M-Pesa; the path must not contain "mpesa", which Daraja is reported to reject) and `/api/cron/release-reservations`.
 - Never import `@repo/db`, `@repo/auth/server` or a value from `@repo/api` into client components (use `import type { AppRouter }` only).
 - Env vars are documented in `.env.example` (never read `.env.local`).

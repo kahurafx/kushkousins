@@ -59,18 +59,20 @@ export const hangingLine = {
   // Deliberately underdamped (ζ ≈ 0.25, period ≈ 0.9s): a hanger rocks a few times and settles.
   // The one exception to spring.default's no-overshoot rule. Units: rotate in degrees.
   swing: { stiffness: 50, damping: 3.5, mass: 1 },
-  swingVelocity: { min: 10, max: 40, perPxPerSec: 0.04 }, // deg/s kick from the hand's speed
+  swingVelocity: { min: 10, max: 40, perPxPerSec: 0.04, directionalPxPerSec: 150 }, // deg/s kick from the hand
 } as const;
 
 /**
- * Rotational kick (deg/s) for a garment the pointer just entered. The hem swings away from the
- * side the hand came from (from the left → hem right → negative rotate about the top hook);
- * faster hands push harder, clamped so a slow entry still nudges and a flick never spins it.
+ * Rotational kick (deg/s) for a garment the pointer just entered. The hem swings the way the hand
+ * moves (rightward → hem right → negative rotate about the top hook); a slow or vertical entry
+ * falls back to the entry side. Faster hands push harder, clamped so a slow entry still nudges
+ * and a flick never spins it. `velocityPxPerSec` is signed horizontal hand velocity.
  */
-export const swingImpulse = (entryX: number, centerX: number, speedPxPerSec: number) => {
-  const { min, max, perPxPerSec } = hangingLine.swingVelocity;
-  const magnitude = Math.min(max, Math.max(min, Math.abs(speedPxPerSec) * perPxPerSec));
-  return (entryX < centerX ? -1 : 1) * magnitude;
+export const swingImpulse = (entryX: number, centerX: number, velocityPxPerSec: number) => {
+  const { min, max, perPxPerSec, directionalPxPerSec } = hangingLine.swingVelocity;
+  const magnitude = Math.min(max, Math.max(min, Math.abs(velocityPxPerSec) * perPxPerSec));
+  const rightward = Math.abs(velocityPxPerSec) > directionalPxPerSec ? velocityPxPerSec > 0 : entryX < centerX;
+  return (rightward ? -1 : 1) * magnitude;
 };
 
 /** Horizontal offset (px) for garment `index` when `active` is hovered/selected. */

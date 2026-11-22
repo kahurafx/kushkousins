@@ -15,7 +15,7 @@ function Garment({ item, index, slot, offset, reduce }: { item: ShowcaseItem; in
   const style = useAnimatedStyle(() => {
     if (reduce) return {};
     const d = Math.abs(offset.value / slot - index);
-    return { transform: [{ scale: interpolate(d, [0, 1], [hangingLine.activeScale, 0.9], "clamp") }], opacity: interpolate(d, [0, 2], [1, 0.55], "clamp") };
+    return { transform: [{ scale: interpolate(d, [0, 1], [hangingLine.activeScale, 0.9], "clamp") }], opacity: interpolate(d, [0, 2], [1, hangingLine.dimOpacity], "clamp") };
   });
   return (
     <Pressable

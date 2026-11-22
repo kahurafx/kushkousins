@@ -59,7 +59,8 @@ function Slot({
 
   return (
     <li
-      className="relative w-32 shrink-0 sm:w-36 lg:w-40"
+      // self-start: the slot is its own garment's height, so the tag hangs from this hem, not the row's.
+      className="relative w-32 shrink-0 self-start sm:w-36 lg:w-40"
       onPointerEnter={(e) => {
         if (e.pointerType !== "mouse") return;
         select(index);
@@ -110,7 +111,7 @@ function Slot({
             <span aria-hidden className="h-3 w-px self-center bg-forest/30" />
             <Link
               href={`/product/${item.slug}`}
-              className="w-max bg-canvas/90 px-3.5 py-2.5 shadow-[0_10px_30px_-12px_rgb(28_43_33/0.35)] backdrop-blur-md chamfer-sm outline-offset-4 outline-forest focus-visible:outline-2"
+              className="w-max bg-stone px-3.5 py-2.5 chamfer-sm outline-offset-4 outline-forest focus-visible:outline-2"
             >
               <span className="sr-only">{item.name}: </span>
               <span className="flex items-center gap-1.5 text-label uppercase">
@@ -135,7 +136,7 @@ export function HangingLine({ items }: { items: LineItem[] }) {
   const [active, setActive] = useState<number | null>(null);
   const reduce = useReducedMotion() ?? false;
   const rackRef = useRef<HTMLDivElement>(null);
-  // Hand speed (px/s) across the rack, sampled on move: pointerenter's own movementX is unreliable.
+  // Signed horizontal hand velocity (px/s) across the rack, sampled on move: pointerenter's own movementX is unreliable.
   const handSpeed = useRef(0);
   const lastMove = useRef<{ x: number; t: number } | null>(null);
 
@@ -165,6 +166,7 @@ export function HangingLine({ items }: { items: LineItem[] }) {
         // Clear only when the mouse leaves the whole rack, so crossing gaps never flickers the tag.
         onPointerLeave={(e) => {
           lastMove.current = null;
+          handSpeed.current = 0;
           if (e.pointerType === "mouse") setActive(null);
         }}
         onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setActive(null)}
